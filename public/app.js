@@ -10,10 +10,19 @@ function feet(meters) {
   return meters * 3.28084;
 }
 
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 function iconDistance() {
   return `
     <svg class="icon" viewBox="0 0 24 24">
-      <path d="M3 12h18M3 6h18M3 18h18" stroke="#4a90e2" stroke-width="2" stroke-linecap="round"/>
+      <path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
     </svg>
   `;
 }
@@ -21,7 +30,7 @@ function iconDistance() {
 function iconElevation() {
   return `
     <svg class="icon" viewBox="0 0 24 24">
-      <path d="M3 20l9-16 9 16H3z" stroke="#4a90e2" stroke-width="2" fill="none"/>
+      <path d="M3 20l9-16 9 16H3z" stroke="currentColor" stroke-width="2" fill="none"/>
     </svg>
   `;
 }
@@ -29,9 +38,9 @@ function iconElevation() {
 function iconRides() {
   return `
     <svg class="icon" viewBox="0 0 24 24">
-      <circle cx="5" cy="17" r="3" stroke="#4a90e2" stroke-width="2" fill="none"/>
-      <circle cx="19" cy="17" r="3" stroke="#4a90e2" stroke-width="2" fill="none"/>
-      <path d="M5 17l6-10 4 6h4" stroke="#4a90e2" stroke-width="2" fill="none"/>
+      <circle cx="5" cy="17" r="3" stroke="currentColor" stroke-width="2" fill="none"/>
+      <circle cx="19" cy="17" r="3" stroke="currentColor" stroke-width="2" fill="none"/>
+      <path d="M5 17l6-10 4 6h4" stroke="currentColor" stroke-width="2" fill="none"/>
     </svg>
   `;
 }
@@ -44,79 +53,166 @@ function hideSpinner() {
   document.getElementById("spinner").style.display = "none";
 }
 
-/* ========== BIKE COMPARISON ========== */
+const STORAGE_KEYS = {
+  selectedTypes: "strava:selectedTypes",
+  selectedBikes: "strava:selectedBikes",
+  pinnedBikes: "strava:pinnedBikes",
+  bikeSearch: "strava:bikeSearch",
+  bikeSort: "strava:bikeSort",
+  theme: "strava:theme"
+};
 
 let selectedBikes = new Map(); // gid -> { name, data }
 let allGearData = {};
+let currentBikeRows = [];
+let selectedTypes = new Set();
+let pinnedBikes = new Set(JSON.parse(localStorage.getItem(STORAGE_KEYS.pinnedBikes) || "[]"));
+
+function saveSelectedBikes() {
+  localStorage.setItem(STORAGE_KEYS.selectedBikes, JSON.stringify(Array.from(selectedBikes.keys())));
+}
+
+function savePinnedBikes() {
+  localStorage.setItem(STORAGE_KEYS.pinnedBikes, JSON.stringify(Array.from(pinnedBikes.values())));
+}
+
+function setLastSyncLabel() {
+  document.getElementById("last-sync").textContent = `Last updated: ${new Date().toLocaleString()}`;
+}
+
+function toggleTheme() {
+  document.body.classList.toggle("dark");
+  localStorage.setItem(STORAGE_KEYS.theme, document.body.classList.contains("dark") ? "dark" : "light");
+}
+
+function applyThemePreference() {
+  const saved = localStorage.getItem(STORAGE_KEYS.theme);
+  if (saved === "dark") {
+    document.body.classList.add("dark");
+    return;
+  }
+  if (saved === "light") {
+    document.body.classList.remove("dark");
+    return;
+  }
+  if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+    document.body.classList.add("dark");
+  }
+}
+
+function renderKpiSummary(data) {
+  const kpi = document.getElementById("kpi-summary");
+  const totalActivities = data.activities.length;
+  const totalDistanceMeters = data.activities.reduce((sum, a) => sum + (a.distance || 0), 0);
+  const totalElevationMeters = data.activities.reduce((sum, a) => sum + (a.total_elevation_gain || 0), 0);
+  const activeBikes = Object.keys(data.gearTotals || {}).length;
+
+  kpi.innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">Total Activities</div>
+      <div class="kpi-value">${comma(totalActivities)}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Total Distance</div>
+      <div class="kpi-value">${comma(miles(totalDistanceMeters).toFixed(1))} mi</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Total Elevation</div>
+      <div class="kpi-value">${comma(feet(totalElevationMeters).toFixed(0))} ft</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Active Bikes</div>
+      <div class="kpi-value">${comma(activeBikes)}</div>
+    </div>
+  `;
+}
+
+/* ========== BIKE COMPARISON ========== */
 
 function toggleBikeSelection(gid, bikeName) {
   if (selectedBikes.has(gid)) {
     selectedBikes.delete(gid);
-    document.getElementById(`checkbox-${gid}`).checked = false;
   } else {
     selectedBikes.set(gid, { name: bikeName, data: allGearData[gid] });
-    document.getElementById(`checkbox-${gid}`).checked = true;
   }
+
+  const checkbox = document.getElementById(`checkbox-${gid}`);
+  if (checkbox) checkbox.checked = selectedBikes.has(gid);
+
+  saveSelectedBikes();
   updateComparisonDisplay();
 }
 
 function updateComparisonDisplay() {
   const comparisonSection = document.getElementById("bike-comparison-section");
-  
+
   if (selectedBikes.size === 0) {
     comparisonSection.style.display = "none";
     return;
   }
-  
+
   comparisonSection.style.display = "block";
   renderBikeComparison();
 }
 
 function renderBikeComparison() {
   const bikeArray = Array.from(selectedBikes.values());
-  
+
   let html = `
     <div class="comparison-header">
       <h3>🔍 Compare Bikes</h3>
       <button class="clear-comparison" onclick="clearBikeComparison()">Clear Comparison</button>
     </div>
-    <table class="comparison-table">
-      <thead>
-        <tr>
-          <th>Metric</th>
+    <div class="comparison-table-wrap">
+      <table class="comparison-table">
+        <thead>
+          <tr>
+            <th>Metric</th>
   `;
-  
+
   bikeArray.forEach(bike => {
-    html += `<th>${bike.name}</th>`;
+    html += `<th>${escapeHtml(bike.name)}</th>`;
   });
-  
+
   html += `</tr></thead><tbody>`;
-  
-  // Distance row
+
   html += `<tr><td><strong>${iconDistance()} Distance</strong></td>`;
   bikeArray.forEach(bike => {
     const dist = miles(bike.data.distance).toFixed(1);
     html += `<td>${comma(dist)} mi</td>`;
   });
   html += `</tr>`;
-  
-  // Elevation row
+
   html += `<tr><td><strong>${iconElevation()} Elevation</strong></td>`;
   bikeArray.forEach(bike => {
     const elev = feet(bike.data.elevation).toFixed(0);
     html += `<td>${comma(elev)} ft</td>`;
   });
   html += `</tr>`;
-  
-  // Activities row
+
   html += `<tr><td><strong>${iconRides()} Activities</strong></td>`;
   bikeArray.forEach(bike => {
     html += `<td>${comma(bike.data.count)}</td>`;
   });
   html += `</tr>`;
-  
-  html += `</tbody></table>`;
-  
+
+  html += `</tbody></table></div>`;
+
+  html += `<div class="comparison-mobile">`;
+  bikeArray.forEach(bike => {
+    html += `
+      <div class="comparison-mobile-card">
+        <div class="comparison-mobile-title">${escapeHtml(bike.name)}</div>
+        <div class="metric-row">
+          <div class="metric">${iconDistance()} ${comma(miles(bike.data.distance).toFixed(1))} mi</div>
+          <div class="metric">${iconElevation()} ${comma(feet(bike.data.elevation).toFixed(0))} ft</div>
+          <div class="metric">${iconRides()} ${comma(bike.data.count)} Activities</div>
+        </div>
+      </div>
+    `;
+  });
+  html += `</div>`;
+
   document.getElementById("comparison-content").innerHTML = html;
 }
 
@@ -125,12 +221,71 @@ function clearBikeComparison() {
   document.querySelectorAll("input[type='checkbox'][id^='checkbox-']").forEach(cb => {
     cb.checked = false;
   });
+  saveSelectedBikes();
   updateComparisonDisplay();
+}
+
+function pinBike(gid) {
+  if (pinnedBikes.has(gid)) pinnedBikes.delete(gid);
+  else pinnedBikes.add(gid);
+
+  currentBikeRows.forEach(row => {
+    if (row.gid === gid) row.isPinned = pinnedBikes.has(gid);
+  });
+
+  savePinnedBikes();
+  updateBikeFilters();
+}
+
+function sortBikeRows(rows, sortValue) {
+  const [field, direction] = sortValue.split("-");
+  const dir = direction === "asc" ? 1 : -1;
+
+  return rows.sort((a, b) => {
+    if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+
+    if (field === "name") {
+      return a.name.localeCompare(b.name) * dir;
+    }
+
+    if (field === "rides") {
+      return (a.total.count - b.total.count) * dir;
+    }
+
+    return (a.total.distance - b.total.distance) * dir;
+  });
+}
+
+function updateBikeFilters() {
+  if (!currentBikeRows.length) return;
+
+  const searchInput = document.getElementById("bike-search");
+  const sortInput = document.getElementById("bike-sort");
+  const search = (searchInput?.value || "").toLowerCase().trim();
+  const sort = sortInput?.value || "distance-desc";
+
+  localStorage.setItem(STORAGE_KEYS.bikeSearch, searchInput.value);
+  localStorage.setItem(STORAGE_KEYS.bikeSort, sort);
+
+  const filtered = currentBikeRows.filter(row => row.name.toLowerCase().includes(search));
+  const sorted = sortBikeRows(filtered, sort);
+  renderBikeRows(sorted);
+}
+
+function restoreBikeFilterInputs() {
+  const bikeSearch = localStorage.getItem(STORAGE_KEYS.bikeSearch);
+  const bikeSort = localStorage.getItem(STORAGE_KEYS.bikeSort);
+
+  if (bikeSearch !== null) document.getElementById("bike-search").value = bikeSearch;
+  if (bikeSort) document.getElementById("bike-sort").value = bikeSort;
 }
 
 /* ========== AUTO LOAD CACHE ========== */
 
 window.onload = async () => {
+  applyThemePreference();
+  restoreBikeFilterInputs();
+
   const statusDiv = document.getElementById("status");
 
   statusDiv.innerHTML = "Loading dashboard…";
@@ -140,6 +295,7 @@ window.onload = async () => {
   const data = await res.json();
 
   hideSpinner();
+  setLastSyncLabel();
 
   if (!data.cached) {
     statusDiv.innerHTML = data.message;
@@ -147,7 +303,6 @@ window.onload = async () => {
   }
 
   statusDiv.innerHTML = data.message;
-
   renderAll(data);
 };
 
@@ -163,6 +318,7 @@ async function refreshData() {
   const data = await res.json();
 
   hideSpinner();
+  setLastSyncLabel();
 
   if (data.error) {
     statusDiv.innerHTML = data.error;
@@ -170,7 +326,6 @@ async function refreshData() {
   }
 
   statusDiv.innerHTML = data.message;
-
   renderAll(data);
 }
 
@@ -186,6 +341,7 @@ async function fullPull() {
   const data = await res.json();
 
   hideSpinner();
+  setLastSyncLabel();
 
   if (data.error) {
     statusDiv.innerHTML = data.error;
@@ -193,13 +349,13 @@ async function fullPull() {
   }
 
   statusDiv.innerHTML = data.message;
-
   renderAll(data);
 }
 
 /* ========== RENDER EVERYTHING ========== */
 
 function renderAll(data) {
+  renderKpiSummary(data);
   renderActivityCounts(data.activityCounts);
   renderAnnualStats(data);
   renderBikeStats(data.bikeYearStats, data.gearTotals, data.gearDetails);
@@ -220,48 +376,35 @@ function renderActivityCounts(counts) {
 
   html += `</div>`;
 
-  document.getElementById("activity-counts").innerHTML += html;
+  document.getElementById("activity-counts-content").innerHTML = html;
 }
 
 /* ========== ANNUAL STATS ========== */
-
-let selectedTypes = new Set();
 
 function renderAnnualStats(data) {
   const container = document.getElementById("activity-type-checkboxes");
   container.innerHTML = "";
 
   const types = Object.keys(data.activityCounts);
+  const storedTypes = JSON.parse(localStorage.getItem(STORAGE_KEYS.selectedTypes) || "null");
 
-  // ALL checkbox
   const allDiv = document.createElement("div");
   allDiv.innerHTML = `
     <label>
-      <input type="checkbox" id="chk-all" checked>
+      <input type="checkbox" id="chk-all">
       <strong>ALL</strong>
     </label>
   `;
   container.appendChild(allDiv);
 
-  selectedTypes = new Set(types);
+  selectedTypes = new Set(storedTypes && storedTypes.length ? storedTypes.filter(t => types.includes(t)) : types);
 
-  document.getElementById("chk-all").addEventListener("change", () => {
-    const allChecked = document.getElementById("chk-all").checked;
-    types.forEach(t => {
-      document.getElementById(`chk-${t}`).checked = allChecked;
-      if (allChecked) selectedTypes.add(t);
-      else selectedTypes.delete(t);
-    });
-    updateAnnualStatsTable(data);
-  });
-
-  // Individual checkboxes
   types.forEach(type => {
     const id = `chk-${type}`;
     const div = document.createElement("div");
     div.innerHTML = `
       <label>
-        <input type="checkbox" id="${id}" checked>
+        <input type="checkbox" id="${id}" ${selectedTypes.has(type) ? "checked" : ""}>
         ${type}
       </label>
     `;
@@ -272,11 +415,22 @@ function renderAnnualStats(data) {
       if (checked) selectedTypes.add(type);
       else selectedTypes.delete(type);
 
-      document.getElementById("chk-all").checked =
-        selectedTypes.size === types.length;
-
+      document.getElementById("chk-all").checked = selectedTypes.size === types.length;
+      localStorage.setItem(STORAGE_KEYS.selectedTypes, JSON.stringify(Array.from(selectedTypes)));
       updateAnnualStatsTable(data);
     });
+  });
+
+  document.getElementById("chk-all").checked = selectedTypes.size === types.length;
+  document.getElementById("chk-all").addEventListener("change", () => {
+    const allChecked = document.getElementById("chk-all").checked;
+    types.forEach(t => {
+      document.getElementById(`chk-${t}`).checked = allChecked;
+      if (allChecked) selectedTypes.add(t);
+      else selectedTypes.delete(t);
+    });
+    localStorage.setItem(STORAGE_KEYS.selectedTypes, JSON.stringify(Array.from(selectedTypes)));
+    updateAnnualStatsTable(data);
   });
 
   updateAnnualStatsTable(data);
@@ -335,18 +489,12 @@ function updateAnnualStatsTable(data) {
 
 /* ========== BIKE STATS ========== */
 
-function renderBikeStats(bikeYearStats, gearTotals, gearDetails) {
-  allGearData = gearTotals;
-  
-  const gearNames = {};
-  for (const gid of Object.keys(gearDetails)) {
-    gearNames[gid] = gearDetails[gid].name || gid;
-  }
-
+function renderBikeRows(rows) {
   let html = "";
 
-  for (const gid of Object.keys(bikeYearStats)) {
-    const total = gearTotals[gid];
+  rows.forEach(row => {
+    const total = row.total;
+    const isSelected = selectedBikes.has(row.gid);
 
     let card = `
       <div class="card">
@@ -354,13 +502,16 @@ function renderBikeStats(bikeYearStats, gearTotals, gearDetails) {
         <div class="card-header">
           <div class="bike-header-content">
             <svg class="icon-lg" viewBox="0 0 24 24">
-              <circle cx="5" cy="17" r="3" stroke="#4a90e2" stroke-width="2" fill="none"/>
-              <circle cx="19" cy="17" r="3" stroke="#4a90e2" stroke-width="2" fill="none"/>
-              <path d="M5 17l6-10 4 6h4" stroke="#4a90e2" stroke-width="2" fill="none"/>
+              <circle cx="5" cy="17" r="3" stroke="currentColor" stroke-width="2" fill="none"/>
+              <circle cx="19" cy="17" r="3" stroke="currentColor" stroke-width="2" fill="none"/>
+              <path d="M5 17l6-10 4 6h4" stroke="currentColor" stroke-width="2" fill="none"/>
             </svg>
-            <span>${gearNames[gid]}</span>
+            <span>${escapeHtml(row.name)}</span>
           </div>
-          <input type="checkbox" id="checkbox-${gid}" class="bike-checkbox" onchange="toggleBikeSelection('${gid}', '${gearNames[gid]}')">
+          <div>
+            <button class="pin-button ${row.isPinned ? "pinned" : ""}" onclick="pinBike('${row.gid}')">${row.isPinned ? "★ Pinned" : "☆ Pin"}</button>
+            <input type="checkbox" id="checkbox-${row.gid}" class="bike-checkbox" data-gid="${row.gid}" data-name="${escapeHtml(row.name)}" ${isSelected ? "checked" : ""}>
+          </div>
         </div>
 
         <div class="metric-row">
@@ -370,9 +521,8 @@ function renderBikeStats(bikeYearStats, gearTotals, gearDetails) {
         </div>
     `;
 
-    const years = Object.keys(bikeYearStats[gid]).sort((a, b) => b - a);
-    years.forEach(year => {
-      const y = bikeYearStats[gid][year];
+    row.years.forEach(year => {
+      const y = row.bikeYearStats[year];
       card += `
         <div class="year-card">
           <div class="year-title">${year}</div>
@@ -387,7 +537,44 @@ function renderBikeStats(bikeYearStats, gearTotals, gearDetails) {
 
     card += `</div>`;
     html += card;
-  }
+  });
 
   document.getElementById("bike-grid").innerHTML = html;
+
+  document.querySelectorAll(".bike-checkbox").forEach(cb => {
+    cb.addEventListener("change", event => {
+      const gid = event.target.dataset.gid;
+      const name = event.target.dataset.name;
+      toggleBikeSelection(gid, name);
+    });
+  });
+}
+
+function renderBikeStats(bikeYearStats, gearTotals, gearDetails) {
+  allGearData = gearTotals;
+
+  const gearNames = {};
+  for (const gid of Object.keys(gearDetails)) {
+    gearNames[gid] = gearDetails[gid].name || gid;
+  }
+
+  const rememberedBikes = JSON.parse(localStorage.getItem(STORAGE_KEYS.selectedBikes) || "[]");
+  selectedBikes = new Map();
+  rememberedBikes.forEach(gid => {
+    if (gearTotals[gid]) {
+      selectedBikes.set(gid, { name: gearNames[gid] || gid, data: gearTotals[gid] });
+    }
+  });
+
+  currentBikeRows = Object.keys(bikeYearStats).map(gid => ({
+    gid,
+    name: gearNames[gid] || gid,
+    total: gearTotals[gid],
+    bikeYearStats: bikeYearStats[gid],
+    years: Object.keys(bikeYearStats[gid]).sort((a, b) => b - a),
+    isPinned: pinnedBikes.has(gid)
+  }));
+
+  updateBikeFilters();
+  updateComparisonDisplay();
 }
