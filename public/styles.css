@@ -1,0 +1,95 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  background: #fafafa;
+}
+
+#layout {
+  display: flex;
+  flex-direction: row;
+}
+
+#main {
+  flex: 3;
+  padding: 30px;
+}
+
+#sidebar {
+  flex: 1;
+  background: #f0f4ff;
+  border-left: 3px solid #d0d8ff;
+  height: 100vh;
+  overflow: hidden;
+  transition: width 0.3s ease;
+  width: 300px;
+}
+
+#sidebar.collapsed {
+  width: 40px;
+}
+
+#sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #dce4ff;
+  padding: 10px;
+  cursor: pointer;
+}
+
+#toggle-icon {
+  font-size: 20px;
+  transition: transform 0.3s ease;
+}
+
+#sidebar.collapsed #toggle-icon {
+  transform: rotate(-90deg);
+}
+
+#progress-wrapper {
+  overflow-y: auto;
+  height: calc(100vh - 60px);
+  transition: opacity 0.3s ease;
+}
+
+#sidebar.collapsed #progress-wrapper {
+  opacity: 0;
+  pointer-events: none;
+}
+
+button {
+  padding: 10px 20px;
+  font-size: 16px;
+  margin-bottom: 20px;
+}
+
+.section {
+  margin-bottom: 30px;
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 0 4px rgba(0,0,0,0.1);
+}
+
+.section h2 {
+  margin-bottom: 15px;
+  border-bottom: 2px solid #ddd;
+  padding-bottom: 5px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+table th, table td {
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+  text-align: left;
+}
+
+table th {
+  background: #f7f7f7;
+  font-weight: bold;
+}
