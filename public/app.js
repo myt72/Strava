@@ -6,6 +6,10 @@ function miles(meters) {
   return meters / 1609.34;
 }
 
+function feet(meters) {
+  return meters * 3.28084;
+}
+
 function iconDistance() {
   return `
     <svg class="icon" viewBox="0 0 24 24">
@@ -45,7 +49,7 @@ function hideSpinner() {
 window.onload = async () => {
   const statusDiv = document.getElementById("status");
 
-  statusDiv.innerHTML = "Loading dashboard…";
+  statusDiv.innerHTML = "Loading dashboardâ€¦";
   showSpinner();
 
   const res = await fetch("http://192.168.0.115:5000/api/analytics/auto");
@@ -68,7 +72,7 @@ window.onload = async () => {
 async function refreshData() {
   const statusDiv = document.getElementById("status");
 
-  statusDiv.innerHTML = "Refreshing (only new activities)…";
+  statusDiv.innerHTML = "Refreshing (only new activities)â€¦";
   showSpinner();
 
   const res = await fetch("http://192.168.0.115:5000/api/analytics?refresh=1");
@@ -91,7 +95,7 @@ async function refreshData() {
 async function fullPull() {
   const statusDiv = document.getElementById("status");
 
-  statusDiv.innerHTML = "Performing full data pull…";
+  statusDiv.innerHTML = "Performing full data pullâ€¦";
   showSpinner();
 
   const res = await fetch("http://192.168.0.115:5000/api/analytics?full=1");
@@ -220,8 +224,8 @@ function updateAnnualStatsTable(data) {
   let html = `
     <div class="metric-row">
       <div class="metric">${iconDistance()} ${comma(miles(totalDistance).toFixed(1))} mi</div>
-      <div class="metric">${iconElevation()} ${comma(totalElevation.toFixed(0))} ft</div>
-      <div class="metric">${iconRides()} ${comma(totalCount)} rides</div>
+      <div class="metric">${iconElevation()} ${comma(feet(totalElevation).toFixed(0))} ft</div>
+      <div class="metric">${iconRides()} ${comma(totalCount)} Activities</div>
     </div>
   `;
 
@@ -232,8 +236,8 @@ function updateAnnualStatsTable(data) {
         <div class="year-title">${year}</div>
         <div class="metric-row">
           <div class="metric">${iconDistance()} ${comma(miles(y.distance).toFixed(1))} mi</div>
-          <div class="metric">${iconElevation()} ${comma(y.elevation.toFixed(0))} ft</div>
-          <div class="metric">${iconRides()} ${comma(y.count)} rides</div>
+          <div class="metric">${iconElevation()} ${comma(feet(y.elevation).toFixed(0))} ft</div>
+          <div class="metric">${iconRides()} ${comma(y.count)} Activities</div>
         </div>
       </div>
     `;
@@ -269,8 +273,8 @@ function renderBikeStats(bikeYearStats, gearTotals, gearDetails) {
 
         <div class="metric-row">
           <div class="metric">${iconDistance()} ${comma(miles(total.distance).toFixed(1))} mi</div>
-          <div class="metric">${iconElevation()} ${comma(total.elevation.toFixed(0))} ft</div>
-          <div class="metric">${iconRides()} ${comma(total.count)} rides</div>
+          <div class="metric">${iconElevation()} ${comma(feet(total.elevation).toFixed(0))} ft</div>
+          <div class="metric">${iconRides()} ${comma(total.count)} Activities</div>
         </div>
     `;
 
@@ -282,8 +286,8 @@ function renderBikeStats(bikeYearStats, gearTotals, gearDetails) {
           <div class="year-title">${year}</div>
           <div class="metric-row">
             <div class="metric">${iconDistance()} ${comma(miles(y.distance).toFixed(1))} mi</div>
-            <div class="metric">${iconElevation()} ${comma(y.elevation.toFixed(0))} ft</div>
-            <div class="metric">${iconRides()} ${comma(y.count)} rides</div>
+            <div class="metric">${iconElevation()} ${comma(feet(y.elevation).toFixed(0))} ft</div>
+            <div class="metric">${iconRides()} ${comma(y.count)} Activities</div>
           </div>
         </div>
       `;
