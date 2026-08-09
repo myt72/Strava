@@ -222,10 +222,13 @@ function updateAnnualStatsTable(data) {
   const years = Object.keys(annual).sort((a, b) => b - a);
 
   let html = `
-    <div class="metric-row">
-      <div class="metric">${iconDistance()} ${comma(miles(totalDistance).toFixed(1))} mi</div>
-      <div class="metric">${iconElevation()} ${comma(feet(totalElevation).toFixed(0))} ft</div>
-      <div class="metric">${iconRides()} ${comma(totalCount)} Activities</div>
+    <div class="year-card">
+      <div class="year-title">Total</div>
+      <div class="metric-row">
+        <div class="metric">${iconDistance()} ${comma(miles(totalDistance).toFixed(1))} mi</div>
+        <div class="metric">${iconElevation()} ${comma(feet(totalElevation).toFixed(0))} ft</div>
+        <div class="metric">${iconRides()} ${comma(totalCount)} Activities</div>
+      </div>
     </div>
   `;
 
