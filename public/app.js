@@ -546,7 +546,7 @@ function renderYearWithWeekly(row, year, yearData) {
     <div class="year-card">
       <div class="year-header">
         <div class="year-title-section">
-          <button class="week-toggle" onclick="toggleWeekExpansion('${row.gid}', ${year})">
+          <button class="week-toggle" data-gid="${row.gid}" data-year="${year}">
             ${isExpanded ? "▼" : "▶"}
           </button>
           <div class="year-title">${year}</div>
@@ -632,11 +632,22 @@ function renderBikeRows(rows) {
 
   document.getElementById("bike-grid").innerHTML = html;
 
+  // Attach bike checkbox listeners
   document.querySelectorAll(".bike-checkbox").forEach(cb => {
     cb.addEventListener("change", event => {
       const gid = event.target.dataset.gid;
       const name = event.target.dataset.name;
       toggleBikeSelection(gid, name);
+    });
+  });
+
+  // Attach week toggle listeners using event delegation
+  document.querySelectorAll(".week-toggle").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      const gid = btn.dataset.gid;
+      const year = parseInt(btn.dataset.year);
+      toggleWeekExpansion(gid, year);
     });
   });
 }
