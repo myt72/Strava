@@ -13,6 +13,11 @@ let refresh_token = null;
 
 const CACHE_FILE = "./cache.json";
 
+/* Rate limit tracking */
+let rateLimitRemaining = 600;
+let rateLimitLimit = 600;
+let requestCount = 0;
+
 /* ----------------- CACHE BUSTING MIDDLEWARE ----------------- */
 app.use((req, res, next) => {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
@@ -41,7 +46,25 @@ function saveCache(data) {
   fs.renameSync(tmp, CACHE_FILE);
 }
 
-/* ----------------- AUTH ----------------- */
+/* Update rate limit from response headers */
+function updateRateLimit(res) {
+  const limit = res.headers.get("x-ratelimit-limit");
+  const usage = res.headers.get("x-ratelimit-usage");
+  
+  if (limit && usage) {
+    const [used, max] = usage.split(",").map(Number);
+    rateLimitRemaining = max - used;
+    rateLimitLimit = max;
+    console.log(`[Rate Limit] ${rateLimitRemaining}/${max} remaining`);
+  }
+}
+
+/* Sleep utility for rate limiting */
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/* AUTH */
 
 app.get("/dashboard", (req, res, next) => {
   if (!access_token) return res.redirect("/auth");
@@ -79,7 +102,7 @@ app.get("/exchange_token", async (req, res) => {
   res.redirect("/dashboard");
 });
 
-/* ----------------- TOKEN REFRESH ----------------- */
+/* TOKEN REFRESH */
 
 async function refreshToken() {
   const res = await fetch("https://www.strava.com/oauth/token", {
@@ -98,24 +121,39 @@ async function refreshToken() {
   refresh_token = data.refresh_token;
 }
 
-/* ----------------- FETCH WRAPPER ----------------- */
+/* FETCH WRAPPER with rate limit checking */
 
 async function stravaFetch(url) {
+  requestCount++;
+  
+  // If we're running low on rate limit, wait
+  if (rateLimitRemaining < 50) {
+    console.warn(`[Rate Limit] Only ${rateLimitRemaining} calls remaining. Pausing...`);
+    await sleep(2000);
+  }
+
   let res = await fetch(url, {
     headers: { Authorization: `Bearer ${access_token}` }
   });
+
+  updateRateLimit(res);
 
   if (res.status === 401) {
     await refreshToken();
     res = await fetch(url, {
       headers: { Authorization: `Bearer ${access_token}` }
     });
+    updateRateLimit(res);
+  }
+
+  if (res.status === 429) {
+    console.error("[Rate Limit] Hit 429 - Strava rate limit exceeded");
   }
 
   return res;
 }
 
-/* ----------------- ACTIVITY FETCH ----------------- */
+/* ACTIVITY FETCH */
 
 async function fetchAllActivitiesOnce() {
   let page = 1;
@@ -178,7 +216,63 @@ async function fetchNewActivitiesSince(lastDate) {
   return newActs;
 }
 
-/* ----------------- GEAR FETCH ----------------- */
+/* RESUME: fetch activities older than the oldest cached activity */
+
+async function fetchActivitiesBefore(beforeDate) {
+  if (!beforeDate) return [];
+
+  const beforeTs = new Date(beforeDate).getTime();
+  let page = 1;
+  let all = [];
+  let foundBefore = false;
+
+  console.log(`[Resume] Fetching activities before ${beforeDate}...`);
+
+  while (true) {
+    const res = await stravaFetch(
+      `https://www.strava.com/api/v3/athlete/activities?per_page=200&page=${page}`
+    );
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) break;
+
+    for (const a of data) {
+      const ts = new Date(a.start_date).getTime();
+      if (ts < beforeTs) {
+        // This activity is older than our oldest cached one
+        all.push({
+          id: a.id,
+          sport_type: a.sport_type || a.type,
+          distance: a.distance,
+          moving_time: a.moving_time,
+          total_elevation_gain: a.total_elevation_gain,
+          start_date: a.start_date,
+          gear_id: a.gear_id
+        });
+        foundBefore = true;
+      }
+    }
+
+    // If we found activities before our date, keep going
+    if (foundBefore && data[data.length - 1]) {
+      const lastTs = new Date(data[data.length - 1].start_date).getTime();
+      if (lastTs >= beforeTs) {
+        // Last activity on this page is still after our before date, continue
+        page++;
+        continue;
+      } else {
+        // Last activity is before our date, we've found the gap
+        break;
+      }
+    }
+
+    page++;
+  }
+
+  console.log(`[Resume] Found ${all.length} activities before ${beforeDate}`);
+  return all;
+}
+
+/* GEAR FETCH - batched to avoid rate limiting */
 
 async function fetchMissingGearDetails(existingGearDetails, gearTotals) {
   const knownIds = new Set(Object.keys(existingGearDetails || {}));
@@ -187,41 +281,76 @@ async function fetchMissingGearDetails(existingGearDetails, gearTotals) {
 
   if (missingIds.length === 0) return existingGearDetails || {};
 
-  const promises = missingIds.map(async gid => {
-    const res = await stravaFetch(
-      `https://www.strava.com/api/v3/gear/${gid}`
-    );
-    const data = await res.json();
-    return { gid, data };
-  });
+  console.log(`[Gear Fetch] Fetching ${missingIds.length} gear details...`);
 
-  const results = await Promise.all(promises);
   const gearDetails = { ...(existingGearDetails || {}) };
-  for (const { gid, data } of results) {
-    gearDetails[gid] = data;
+  
+  // Batch requests: do 3 at a time to avoid rate limit spikes
+  const BATCH_SIZE = 3;
+  for (let i = 0; i < missingIds.length; i += BATCH_SIZE) {
+    const batch = missingIds.slice(i, i + BATCH_SIZE);
+    const promises = batch.map(async gid => {
+      const res = await stravaFetch(`https://www.strava.com/api/v3/gear/${gid}`);
+      const data = await res.json();
+      return { gid, data };
+    });
+
+    const results = await Promise.all(promises);
+    for (const { gid, data } of results) {
+      gearDetails[gid] = data;
+    }
+    
+    // Small delay between batches
+    if (i + BATCH_SIZE < missingIds.length) {
+      await sleep(500);
+    }
   }
+
   return gearDetails;
 }
 
-/* ----------------- SEGMENT FETCH ----------------- */
+/* SEGMENT FETCH - OPTIONAL and efficient */
 
-async function fetchSegmentEffortsForActivities(activities, existingSegmentData) {
+async function fetchSegmentEffortsForActivities(activities, existingSegmentData, fetchSegments = false) {
+  if (!fetchSegments) {
+    console.log("[Segment Fetch] Skipped (disabled to save rate limit)");
+    return existingSegmentData || {};
+  }
+
   const existing = existingSegmentData || {};
   const toFetch = activities.filter(a => !(a.id in existing));
 
-  if (toFetch.length === 0) return existing;
+  if (toFetch.length === 0) {
+    console.log("[Segment Fetch] No new segments to fetch");
+    return existing;
+  }
 
-  // Strava rate limits: fetch sequentially to avoid 429s
+  console.warn(`[Segment Fetch] WARNING: About to fetch ${toFetch.length} activities for segment data. This uses many API calls!`);
+  
+  // Only fetch if we have rate limit headroom
+  if (rateLimitRemaining < toFetch.length + 50) {
+    console.error(`[Segment Fetch] Insufficient rate limit (${rateLimitRemaining} remaining). Skipping.`);
+    return existing;
+  }
+
   const result = { ...existing };
+  let fetched = 0;
+
+  // Fetch sequentially with delays to respect rate limits
   for (const a of toFetch) {
+    if (rateLimitRemaining < 30) {
+      console.warn(`[Segment Fetch] Rate limit running low. Fetched ${fetched}/${toFetch.length} segments.`);
+      break;
+    }
+
     try {
-      const res = await stravaFetch(
-        `https://www.strava.com/api/v3/activities/${a.id}`
-      );
+      const res = await stravaFetch(`https://www.strava.com/api/v3/activities/${a.id}`);
+      
       if (res.status === 429) {
-        console.warn("Rate limited fetching segments, stopping early.");
+        console.warn("[Segment Fetch] Hit 429. Stopping segment fetch.");
         break;
       }
+
       const detail = await res.json();
       const efforts = Array.isArray(detail.segment_efforts)
         ? detail.segment_efforts.map(e => ({
@@ -231,16 +360,23 @@ async function fetchSegmentEffortsForActivities(activities, existingSegmentData)
           }))
         : [];
       result[a.id] = efforts;
+      fetched++;
+
+      // Respect rate limits with delay
+      if (fetched % 10 === 0) {
+        await sleep(1000);
+      }
     } catch (err) {
-      console.warn(`Failed fetching segments for activity ${a.id}:`, err.message);
+      console.warn(`[Segment Fetch] Failed for activity ${a.id}:`, err.message);
       result[a.id] = [];
     }
   }
 
+  console.log(`[Segment Fetch] Completed: ${fetched}/${toFetch.length} activities`);
   return result;
 }
 
-/* ----------------- ISO WEEK HELPER ----------------- */
+/* ISO WEEK HELPER */
 
 function getISOWeek(dateStr) {
   const d = new Date(dateStr);
@@ -251,7 +387,7 @@ function getISOWeek(dateStr) {
   return { year: thursday.getUTCFullYear(), week };
 }
 
-/* ----------------- ANALYTICS ----------------- */
+/* ANALYTICS */
 
 function computeAnalytics(allActivities, segmentData) {
   const activityCounts = {};
@@ -355,7 +491,7 @@ function computeAnalytics(allActivities, segmentData) {
   return { activityCounts, gearTotals, annualStats, bikeYearStats };
 }
 
-/* ----------------- AUTO LOAD CACHE ----------------- */
+/* AUTO LOAD CACHE */
 
 app.get("/api/analytics/auto", async (req, res) => {
   if (!access_token) {
@@ -378,14 +514,22 @@ app.get("/api/analytics/auto", async (req, res) => {
   });
 });
 
-/* ----------------- FULL PULL + REFRESH ----------------- */
+/* FULL PULL + REFRESH + RESUME */
 
 app.get("/api/analytics", async (req, res) => {
   if (!access_token) return res.status(401).json({ error: "Not authenticated" });
 
   const full = req.query.full === "1";
   const refresh = req.query.refresh === "1";
+  const resume = req.query.resume === "1";
   const cache = loadCache();
+  
+  // Only fetch segments if explicitly requested via ?segments=1
+  const fetchSegments = req.query.segments === "1";
+  
+  requestCount = 0;
+  const mode = full ? "FULL" : refresh ? "REFRESH" : resume ? "RESUME" : "AUTO";
+  console.log(`\n[API Call] Starting ${mode} pull. fetchSegments=${fetchSegments}`);
 
   /* FULL PULL: always fetch everything fresh */
   if (full) {
@@ -397,11 +541,8 @@ app.get("/api/analytics", async (req, res) => {
       });
     }
 
-    const segmentData = await fetchSegmentEffortsForActivities(allActivities, {});
-
-    const { activityCounts, gearTotals, annualStats, bikeYearStats } =
-      computeAnalytics(allActivities, segmentData);
-
+    const segmentData = await fetchSegmentEffortsForActivities(allActivities, {}, fetchSegments);
+    const { activityCounts, gearTotals, annualStats, bikeYearStats } = computeAnalytics(allActivities, segmentData);
     const gearDetails = await fetchMissingGearDetails({}, gearTotals);
 
     const newCache = {
@@ -416,19 +557,78 @@ app.get("/api/analytics", async (req, res) => {
 
     saveCache(newCache);
 
+    console.log(`[API Call] Complete. Total: ${allActivities.length} activities, ${requestCount} API calls used`);
     return res.json({
       cached: false,
       ...newCache,
-      message: "Full data pull complete."
+      message: `Full data pull complete. (${requestCount} API calls, ${allActivities.length} activities)`
+    });
+  }
+
+  /* RESUME: fetch activities older than the oldest cached */
+  if (resume) {
+    if (!cache || !cache.activities || cache.activities.length === 0) {
+      return res.json({
+        error: "No cache to resume from. Run a full pull first."
+      });
+    }
+
+    // Get the oldest cached activity
+    const oldestCached = cache.activities[cache.activities.length - 1];
+    const resumeFromDate = oldestCached.start_date;
+
+    console.log(`[Resume] Oldest cached activity: ${resumeFromDate}`);
+
+    // Fetch activities before this date
+    const olderActivities = await fetchActivitiesBefore(resumeFromDate);
+
+    if (!olderActivities || olderActivities.length === 0) {
+      console.log(`[Resume] No older activities found. Cache is complete.`);
+      return res.json({ 
+        cached: true, 
+        ...cache, 
+        message: "Resume: No older activities found. Cache appears complete." 
+      });
+    }
+
+    // Combine: newer activities first, then older ones
+    const allActivities = cache.activities.concat(olderActivities);
+
+    const segmentData = await fetchSegmentEffortsForActivities(olderActivities, cache.segmentData || {}, fetchSegments);
+    const { activityCounts, gearTotals, annualStats, bikeYearStats } = computeAnalytics(allActivities, segmentData);
+    const gearDetails = await fetchMissingGearDetails(cache.gearDetails, gearTotals);
+
+    const newCache = {
+      activities: allActivities,
+      segmentData,
+      activityCounts,
+      gearTotals,
+      gearDetails,
+      annualStats,
+      bikeYearStats
+    };
+
+    saveCache(newCache);
+
+    console.log(`[API Call] Resume complete. Added ${olderActivities.length} older activities. Total: ${allActivities.length} activities, ${requestCount} API calls used`);
+    return res.json({
+      cached: false,
+      ...newCache,
+      message: `Resume complete. Added ${olderActivities.length} older activities. (${requestCount} API calls, ${allActivities.length} total activities)`
     });
   }
 
   /* If cache exists and not refreshing, return cache */
   if (!refresh && cache) {
-    return res.json({ cached: true, ...cache, message: "Loaded from cache.json" });
+    console.log(`[API Call] Cache hit, returning without API calls. (${cache.activities.length} activities in cache)`);
+    return res.json({ 
+      cached: true, 
+      ...cache, 
+      message: `Loaded from cache.json (${cache.activities.length} activities)` 
+    });
   }
 
-  /* If no cache and refresh requested, do full pull */
+  /* If no cache and refresh requested → full pull */
   if (!cache) {
     const allActivities = await fetchAllActivitiesOnce();
 
@@ -438,11 +638,8 @@ app.get("/api/analytics", async (req, res) => {
       });
     }
 
-    const segmentData = await fetchSegmentEffortsForActivities(allActivities, {});
-
-    const { activityCounts, gearTotals, annualStats, bikeYearStats } =
-      computeAnalytics(allActivities, segmentData);
-
+    const segmentData = await fetchSegmentEffortsForActivities(allActivities, {}, fetchSegments);
+    const { activityCounts, gearTotals, annualStats, bikeYearStats } = computeAnalytics(allActivities, segmentData);
     const gearDetails = await fetchMissingGearDetails({}, gearTotals);
 
     const newCache = {
@@ -457,27 +654,30 @@ app.get("/api/analytics", async (req, res) => {
 
     saveCache(newCache);
 
+    console.log(`[API Call] Complete. Total: ${allActivities.length} activities, ${requestCount} API calls used`);
     return res.json({
       cached: false,
       ...newCache,
-      message: "Initial full fetch complete."
+      message: `Initial full fetch complete. (${requestCount} API calls, ${allActivities.length} activities)`
     });
   }
 
-  /* Incremental refresh */
+  /* Incremental refresh (default) */
   const newestDate = cache.activities[0].start_date;
   const newActs = await fetchNewActivitiesSince(newestDate);
 
   if (!newActs || newActs.length === 0) {
-    return res.json({ cached: true, ...cache, message: "No new activities." });
+    console.log(`[API Call] No new activities. Total: ${cache.activities.length} activities cached.`);
+    return res.json({ 
+      cached: true, 
+      ...cache, 
+      message: `No new activities. (${cache.activities.length} activities in cache)` 
+    });
   }
 
   const allActivities = newActs.concat(cache.activities);
-  const segmentData = await fetchSegmentEffortsForActivities(newActs, cache.segmentData || {});
-
-  const { activityCounts, gearTotals, annualStats, bikeYearStats } =
-    computeAnalytics(allActivities, segmentData);
-
+  const segmentData = await fetchSegmentEffortsForActivities(newActs, cache.segmentData || {}, fetchSegments);
+  const { activityCounts, gearTotals, annualStats, bikeYearStats } = computeAnalytics(allActivities, segmentData);
   const gearDetails = await fetchMissingGearDetails(cache.gearDetails, gearTotals);
 
   const newCache = {
@@ -492,13 +692,14 @@ app.get("/api/analytics", async (req, res) => {
 
   saveCache(newCache);
 
+  console.log(`[API Call] Complete. Added ${newActs.length} new activities. Total: ${allActivities.length}, ${requestCount} API calls used`);
   res.json({
     cached: false,
     ...newCache,
-    message: `Added ${newActs.length} new activities from page 1.`
+    message: `Added ${newActs.length} new activities. (${requestCount} API calls, ${allActivities.length} total)`
   });
 });
 
-/* ----------------- START ----------------- */
+/* START */
 
 app.listen(5000, "0.0.0.0", () => console.log("Server running on LAN"));
