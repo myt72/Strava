@@ -82,6 +82,19 @@
         align-items: center;
         gap: 10px;
         margin-bottom: 16px;
+        justify-content: space-between;
+      }
+
+      .bike-header-content {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .bike-checkbox {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
       }
 
       .metric-row {
@@ -148,6 +161,11 @@
       <div id="activity-type-checkboxes" style="display:flex; gap:20px; flex-wrap:wrap;"></div>
 
       <div id="annual-stats-table"></div>
+    </div>
+
+    <!-- Bike Comparison Section -->
+    <div id="bike-comparison-section" class="card" style="display:none; margin-bottom: 24px; background: #e8f4f8; border-left: 4px solid #4a90e2;">
+      <div id="comparison-content"></div>
     </div>
 
     <!-- Bike cards -->
