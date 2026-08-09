@@ -13,6 +13,14 @@ let refresh_token = null;
 
 const CACHE_FILE = "./cache.json";
 
+/* ----------------- CACHE BUSTING MIDDLEWARE ----------------- */
+app.use((req, res, next) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  next();
+});
+
 /* ----------------- CACHE ----------------- */
 
 function loadCache() {
@@ -253,7 +261,7 @@ app.get("/api/analytics/auto", async (req, res) => {
 
   return res.json({
     cached: false,
-    message: "No local data available — populate from the API."
+    message: "No local data available â€” populate from the API."
   });
 });
 
@@ -372,8 +380,4 @@ app.get("/api/analytics", async (req, res) => {
 
 /* ----------------- START ----------------- */
 
-/*--app.listen(5000, () => console.log("Server running on http://localhost:5000/dashboard"));--*/
 app.listen(5000, "0.0.0.0", () => console.log("Server running on LAN"));
-
-  
-
