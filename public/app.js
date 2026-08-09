@@ -10,6 +10,23 @@ function feet(meters) {
   return meters * 3.28084;
 }
 
+function formatSpeed(avg_speed_mph, sport_type) {
+  if (!avg_speed_mph || avg_speed_mph <= 0) return null;
+  if (sport_type === "Run" || sport_type === "Walk") {
+    const pace = 60 / avg_speed_mph;
+    const paceMin = Math.floor(pace);
+    const paceSec = Math.round((pace - paceMin) * 60);
+    return `avg ${paceMin}:${String(paceSec).padStart(2, "0")} min/mi pace`;
+  }
+  return `avg ${avg_speed_mph.toFixed(1)} mph`;
+}
+
+function trendIndicator(trend) {
+  if (trend === 0 || trend == null) return "";
+  if (trend > 0) return `<span class="trend-up">↑ ${(trend * 100).toFixed(0)}%</span>`;
+  return `<span class="trend-down">↓ ${(Math.abs(trend) * 100).toFixed(0)}%</span>`;
+}
+
 function iconDistance() {
   return `
     <svg class="icon" viewBox="0 0 24 24">
@@ -348,6 +365,13 @@ function renderBikeStats(bikeYearStats, gearTotals, gearDetails) {
   for (const gid of Object.keys(bikeYearStats)) {
     const total = gearTotals[gid];
 
+    // Determine dominant sport type for speed/pace formatting
+    const years = Object.keys(bikeYearStats[gid]);
+    const sport_type = "Ride"; // bikes are rides
+
+    const speedLabel = formatSpeed(total.avg_speed_mph, sport_type);
+    const prLabel = total.pr_count > 0 ? `🏆 ${comma(total.pr_count)} PRs` : "";
+
     let card = `
       <div class="card">
         <div class="accent-bar"></div>
@@ -367,19 +391,52 @@ function renderBikeStats(bikeYearStats, gearTotals, gearDetails) {
           <div class="metric">${iconDistance()} ${comma(miles(total.distance).toFixed(1))} mi</div>
           <div class="metric">${iconElevation()} ${comma(feet(total.elevation).toFixed(0))} ft</div>
           <div class="metric">${iconRides()} ${comma(total.count)} Activities</div>
+          ${speedLabel ? `<div class="metric speed-metric">⚡ ${speedLabel}</div>` : ""}
+          ${prLabel ? `<div class="metric">${prLabel}</div>` : ""}
         </div>
     `;
 
-    const years = Object.keys(bikeYearStats[gid]).sort((a, b) => b - a);
-    years.forEach(year => {
+    const sortedYears = Object.keys(bikeYearStats[gid]).sort((a, b) => b - a);
+    sortedYears.forEach(year => {
       const y = bikeYearStats[gid][year];
+      const yearSpeedLabel = formatSpeed(y.avg_speed_mph, sport_type);
+      const yearPrLabel = y.pr_count > 0 ? `🏆 ${comma(y.pr_count)} PRs` : "";
+      const weeklyId = `weeks-${gid}-${year}`;
+
+      // Build weekly rows sorted descending
+      const weekNums = Object.keys(y.weeks || {}).map(Number).sort((a, b) => b - a);
+      let weeksHtml = "";
+      weekNums.forEach(wk => {
+        const w = y.weeks[wk];
+        const wDist = miles(w.distance).toFixed(1);
+        const wElev = feet(w.elevation).toFixed(0);
+        const trend = trendIndicator(w.trend);
+        weeksHtml += `
+          <div class="week-row">
+            <span class="week-label">Wk ${wk}</span>
+            <span>${iconDistance()} ${comma(wDist)} mi</span>
+            <span>${iconElevation()} ${comma(wElev)} ft</span>
+            <span>${iconRides()} ${w.count}</span>
+            ${trend ? `<span>${trend}</span>` : ""}
+          </div>
+        `;
+      });
+
       card += `
         <div class="year-card">
-          <div class="year-title">${year}</div>
+          <div class="year-card-header" onclick="toggleWeeks('${weeklyId}')">
+            <div class="year-title">${year}</div>
+            <button class="week-toggle-btn" id="btn-${weeklyId}" aria-label="Toggle weekly breakdown">▶</button>
+          </div>
           <div class="metric-row">
             <div class="metric">${iconDistance()} ${comma(miles(y.distance).toFixed(1))} mi</div>
             <div class="metric">${iconElevation()} ${comma(feet(y.elevation).toFixed(0))} ft</div>
             <div class="metric">${iconRides()} ${comma(y.count)} Activities</div>
+            ${yearSpeedLabel ? `<div class="metric speed-metric">⚡ ${yearSpeedLabel}</div>` : ""}
+            ${yearPrLabel ? `<div class="metric">${yearPrLabel}</div>` : ""}
+          </div>
+          <div class="weeks-container" id="${weeklyId}" style="display:none;">
+            ${weeksHtml || "<div class='week-row'>No weekly data</div>"}
           </div>
         </div>
       `;
@@ -390,4 +447,13 @@ function renderBikeStats(bikeYearStats, gearTotals, gearDetails) {
   }
 
   document.getElementById("bike-grid").innerHTML = html;
+}
+
+function toggleWeeks(id) {
+  const container = document.getElementById(id);
+  const btn = document.getElementById(`btn-${id}`);
+  if (!container) return;
+  const isOpen = container.style.display !== "none";
+  container.style.display = isOpen ? "none" : "block";
+  if (btn) btn.textContent = isOpen ? "▶" : "▼";
 }

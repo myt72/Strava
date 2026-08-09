@@ -125,6 +125,7 @@ async function fetchAllActivitiesOnce() {
         id: a.id,
         sport_type: a.sport_type || a.type,
         distance: a.distance,
+        moving_time: a.moving_time,
         total_elevation_gain: a.total_elevation_gain,
         start_date: a.start_date,
         gear_id: a.gear_id
@@ -156,6 +157,7 @@ async function fetchNewActivitiesSince(lastDate) {
         id: a.id,
         sport_type: a.sport_type || a.type,
         distance: a.distance,
+        moving_time: a.moving_time,
         total_elevation_gain: a.total_elevation_gain,
         start_date: a.start_date,
         gear_id: a.gear_id
@@ -193,9 +195,57 @@ async function fetchMissingGearDetails(existingGearDetails, gearTotals) {
   return gearDetails;
 }
 
+/* ----------------- SEGMENT FETCH ----------------- */
+
+async function fetchSegmentEffortsForActivities(activities, existingSegmentData) {
+  const existing = existingSegmentData || {};
+  const toFetch = activities.filter(a => !(a.id in existing));
+
+  if (toFetch.length === 0) return existing;
+
+  // Strava rate limits: fetch sequentially to avoid 429s
+  const result = { ...existing };
+  for (const a of toFetch) {
+    try {
+      const res = await stravaFetch(
+        `https://www.strava.com/api/v3/activities/${a.id}`
+      );
+      if (res.status === 429) {
+        console.warn("Rate limited fetching segments, stopping early.");
+        break;
+      }
+      const detail = await res.json();
+      const efforts = Array.isArray(detail.segment_efforts)
+        ? detail.segment_efforts.map(e => ({
+            segment_id: e.segment && e.segment.id,
+            segment_name: e.segment && e.segment.name,
+            pr_rank: e.pr_rank || null
+          }))
+        : [];
+      result[a.id] = efforts;
+    } catch (err) {
+      console.warn(`Failed fetching segments for activity ${a.id}:`, err.message);
+      result[a.id] = [];
+    }
+  }
+
+  return result;
+}
+
+/* ----------------- ISO WEEK HELPER ----------------- */
+
+function getISOWeek(dateStr) {
+  const d = new Date(dateStr);
+  const thursday = new Date(d);
+  thursday.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7) + 3);
+  const yearStart = new Date(Date.UTC(thursday.getUTCFullYear(), 0, 1));
+  const week = Math.ceil(((thursday - yearStart) / 86400000 + 1) / 7);
+  return { year: thursday.getUTCFullYear(), week };
+}
+
 /* ----------------- ANALYTICS ----------------- */
 
-function computeAnalytics(allActivities) {
+function computeAnalytics(allActivities, segmentData) {
   const activityCounts = {};
   const gearTotals = {};
   const annualStats = {};
@@ -205,11 +255,19 @@ function computeAnalytics(allActivities) {
     const type = a.sport_type;
     activityCounts[type] = (activityCounts[type] || 0) + 1;
 
+    const prCount = segmentData && a.id in segmentData
+      ? (segmentData[a.id] || []).filter(e => e.pr_rank === 1).length
+      : 0;
+
     if (a.gear_id) {
-      if (!gearTotals[a.gear_id]) gearTotals[a.gear_id] = { distance: 0, elevation: 0, count: 0 };
+      if (!gearTotals[a.gear_id]) {
+        gearTotals[a.gear_id] = { distance: 0, elevation: 0, count: 0, moving_time: 0, pr_count: 0 };
+      }
       gearTotals[a.gear_id].distance += a.distance;
       gearTotals[a.gear_id].elevation += a.total_elevation_gain;
       gearTotals[a.gear_id].count++;
+      gearTotals[a.gear_id].moving_time += a.moving_time || 0;
+      gearTotals[a.gear_id].pr_count += prCount;
     }
 
     const year = new Date(a.start_date).getFullYear();
@@ -220,14 +278,69 @@ function computeAnalytics(allActivities) {
 
     if (a.gear_id) {
       if (!bikeYearStats[a.gear_id]) bikeYearStats[a.gear_id] = {};
-      if (!bikeYearStats[a.gear_id][year]) bikeYearStats[a.gear_id][year] = {
-        distance: 0,
-        elevation: 0,
-        count: 0
-      };
+      if (!bikeYearStats[a.gear_id][year]) {
+        bikeYearStats[a.gear_id][year] = {
+          distance: 0,
+          elevation: 0,
+          count: 0,
+          moving_time: 0,
+          pr_count: 0,
+          weeks: {}
+        };
+      }
       bikeYearStats[a.gear_id][year].distance += a.distance;
       bikeYearStats[a.gear_id][year].elevation += a.total_elevation_gain;
       bikeYearStats[a.gear_id][year].count++;
+      bikeYearStats[a.gear_id][year].moving_time += a.moving_time || 0;
+      bikeYearStats[a.gear_id][year].pr_count += prCount;
+
+      // Weekly breakdown
+      const isoWeek = getISOWeek(a.start_date);
+      const wk = String(isoWeek.week);
+      if (!bikeYearStats[a.gear_id][year].weeks[wk]) {
+        bikeYearStats[a.gear_id][year].weeks[wk] = { distance: 0, elevation: 0, count: 0, moving_time: 0 };
+      }
+      bikeYearStats[a.gear_id][year].weeks[wk].distance += a.distance;
+      bikeYearStats[a.gear_id][year].weeks[wk].elevation += a.total_elevation_gain;
+      bikeYearStats[a.gear_id][year].weeks[wk].count++;
+      bikeYearStats[a.gear_id][year].weeks[wk].moving_time += a.moving_time || 0;
+    }
+  }
+
+  // Calculate avg speed/pace and week trends
+  for (const gid of Object.keys(gearTotals)) {
+    const gt = gearTotals[gid];
+    if (gt.moving_time > 0 && gt.distance > 0) {
+      const distMiles = gt.distance / 1609.34;
+      const timeHours = gt.moving_time / 3600;
+      gt.avg_speed_mph = distMiles / timeHours;
+      gt.avg_pace_min_per_mi = (gt.moving_time / 60) / distMiles;
+    }
+  }
+
+  for (const gid of Object.keys(bikeYearStats)) {
+    for (const year of Object.keys(bikeYearStats[gid])) {
+      const ys = bikeYearStats[gid][year];
+      if (ys.moving_time > 0 && ys.distance > 0) {
+        const distMiles = ys.distance / 1609.34;
+        const timeHours = ys.moving_time / 3600;
+        ys.avg_speed_mph = distMiles / timeHours;
+        ys.avg_pace_min_per_mi = (ys.moving_time / 60) / distMiles;
+      }
+
+      // Compute week trends
+      const weekNums = Object.keys(ys.weeks).map(Number).sort((a, b) => a - b);
+      for (let i = 0; i < weekNums.length; i++) {
+        const wk = String(weekNums[i]);
+        const prevWk = i > 0 ? String(weekNums[i - 1]) : null;
+        if (prevWk) {
+          const curr = ys.weeks[wk].distance;
+          const prev = ys.weeks[prevWk].distance;
+          ys.weeks[wk].trend = prev > 0 ? (curr - prev) / prev : 0;
+        } else {
+          ys.weeks[wk].trend = 0;
+        }
+      }
     }
   }
 
@@ -253,7 +366,7 @@ app.get("/api/analytics/auto", async (req, res) => {
 
   return res.json({
     cached: false,
-    message: "No local data available — populate from the API."
+    message: "No local data available ï¿½ populate from the API."
   });
 });
 
@@ -276,13 +389,16 @@ app.get("/api/analytics", async (req, res) => {
       });
     }
 
+    const segmentData = await fetchSegmentEffortsForActivities(allActivities, {});
+
     const { activityCounts, gearTotals, annualStats, bikeYearStats } =
-      computeAnalytics(allActivities);
+      computeAnalytics(allActivities, segmentData);
 
     const gearDetails = await fetchMissingGearDetails({}, gearTotals);
 
     const newCache = {
       activities: allActivities,
+      segmentData,
       activityCounts,
       gearTotals,
       gearDetails,
@@ -304,7 +420,7 @@ app.get("/api/analytics", async (req, res) => {
     return res.json({ cached: true, ...cache, message: "Loaded from cache.json" });
   }
 
-  /* If no cache and refresh requested ? full pull */
+  /* If no cache and refresh requested, do full pull */
   if (!cache) {
     const allActivities = await fetchAllActivitiesOnce();
 
@@ -314,13 +430,16 @@ app.get("/api/analytics", async (req, res) => {
       });
     }
 
+    const segmentData = await fetchSegmentEffortsForActivities(allActivities, {});
+
     const { activityCounts, gearTotals, annualStats, bikeYearStats } =
-      computeAnalytics(allActivities);
+      computeAnalytics(allActivities, segmentData);
 
     const gearDetails = await fetchMissingGearDetails({}, gearTotals);
 
     const newCache = {
       activities: allActivities,
+      segmentData,
       activityCounts,
       gearTotals,
       gearDetails,
@@ -346,14 +465,16 @@ app.get("/api/analytics", async (req, res) => {
   }
 
   const allActivities = newActs.concat(cache.activities);
+  const segmentData = await fetchSegmentEffortsForActivities(newActs, cache.segmentData || {});
 
   const { activityCounts, gearTotals, annualStats, bikeYearStats } =
-    computeAnalytics(allActivities);
+    computeAnalytics(allActivities, segmentData);
 
   const gearDetails = await fetchMissingGearDetails(cache.gearDetails, gearTotals);
 
   const newCache = {
     activities: allActivities,
+    segmentData,
     activityCounts,
     gearTotals,
     gearDetails,
