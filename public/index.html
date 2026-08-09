@@ -17,7 +17,7 @@
         </button>
 
         <div class="advanced-actions-menu">
-          <button class="menu-trigger" onclick="toggleAdvancedMenu()" title="Advanced Actions">
+          <button id="advanced-menu-trigger" class="menu-trigger" onclick="toggleAdvancedMenu()" title="Advanced Actions">
             <svg viewBox="0 0 24 24" width="24" height="24">
               <circle cx="6" cy="12" r="2" fill="currentColor"/>
               <circle cx="12" cy="12" r="2" fill="currentColor"/>
@@ -110,8 +110,8 @@
     // Close menu when clicking outside
     document.addEventListener('click', function(event) {
       const menu = document.getElementById('advanced-menu');
-      const trigger = document.querySelector('.menu-trigger');
-      if (!menu.contains(event.target) && !trigger.contains(event.target)) {
+      const trigger = document.getElementById('advanced-menu-trigger');
+      if (menu && trigger && !menu.contains(event.target) && !trigger.contains(event.target)) {
         menu.classList.remove('open');
       }
     });
