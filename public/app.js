@@ -44,7 +44,91 @@ function hideSpinner() {
   document.getElementById("spinner").style.display = "none";
 }
 
-/* ----------------- AUTO LOAD CACHE ----------------- */
+/* ========== BIKE COMPARISON ========== */
+
+let selectedBikes = new Map(); // gid -> { name, data }
+let allGearData = {};
+
+function toggleBikeSelection(gid, bikeName) {
+  if (selectedBikes.has(gid)) {
+    selectedBikes.delete(gid);
+    document.getElementById(`checkbox-${gid}`).checked = false;
+  } else {
+    selectedBikes.set(gid, { name: bikeName, data: allGearData[gid] });
+    document.getElementById(`checkbox-${gid}`).checked = true;
+  }
+  updateComparisonDisplay();
+}
+
+function updateComparisonDisplay() {
+  const comparisonSection = document.getElementById("bike-comparison-section");
+  
+  if (selectedBikes.size === 0) {
+    comparisonSection.style.display = "none";
+    return;
+  }
+  
+  comparisonSection.style.display = "block";
+  renderBikeComparison();
+}
+
+function renderBikeComparison() {
+  const bikeArray = Array.from(selectedBikes.values());
+  
+  let html = `
+    <div class="comparison-header">
+      <h3>🔍 Compare Bikes</h3>
+      <button class="clear-comparison" onclick="clearBikeComparison()">Clear Comparison</button>
+    </div>
+    <table class="comparison-table">
+      <thead>
+        <tr>
+          <th>Metric</th>
+  `;
+  
+  bikeArray.forEach(bike => {
+    html += `<th>${bike.name}</th>`;
+  });
+  
+  html += `</tr></thead><tbody>`;
+  
+  // Distance row
+  html += `<tr><td><strong>${iconDistance()} Distance</strong></td>`;
+  bikeArray.forEach(bike => {
+    const dist = miles(bike.data.distance).toFixed(1);
+    html += `<td>${comma(dist)} mi</td>`;
+  });
+  html += `</tr>`;
+  
+  // Elevation row
+  html += `<tr><td><strong>${iconElevation()} Elevation</strong></td>`;
+  bikeArray.forEach(bike => {
+    const elev = feet(bike.data.elevation).toFixed(0);
+    html += `<td>${comma(elev)} ft</td>`;
+  });
+  html += `</tr>`;
+  
+  // Activities row
+  html += `<tr><td><strong>${iconRides()} Activities</strong></td>`;
+  bikeArray.forEach(bike => {
+    html += `<td>${comma(bike.data.count)}</td>`;
+  });
+  html += `</tr>`;
+  
+  html += `</tbody></table>`;
+  
+  document.getElementById("comparison-content").innerHTML = html;
+}
+
+function clearBikeComparison() {
+  selectedBikes.clear();
+  document.querySelectorAll("input[type='checkbox'][id^='checkbox-']").forEach(cb => {
+    cb.checked = false;
+  });
+  updateComparisonDisplay();
+}
+
+/* ========== AUTO LOAD CACHE ========== */
 
 window.onload = async () => {
   const statusDiv = document.getElementById("status");
@@ -67,7 +151,7 @@ window.onload = async () => {
   renderAll(data);
 };
 
-/* ----------------- MANUAL REFRESH ----------------- */
+/* ========== MANUAL REFRESH ========== */
 
 async function refreshData() {
   const statusDiv = document.getElementById("status");
@@ -90,7 +174,7 @@ async function refreshData() {
   renderAll(data);
 }
 
-/* ----------------- FULL DATA PULL ----------------- */
+/* ========== FULL DATA PULL ========== */
 
 async function fullPull() {
   const statusDiv = document.getElementById("status");
@@ -113,7 +197,7 @@ async function fullPull() {
   renderAll(data);
 }
 
-/* ----------------- RENDER EVERYTHING ----------------- */
+/* ========== RENDER EVERYTHING ========== */
 
 function renderAll(data) {
   renderActivityCounts(data.activityCounts);
@@ -121,7 +205,7 @@ function renderAll(data) {
   renderBikeStats(data.bikeYearStats, data.gearTotals, data.gearDetails);
 }
 
-/* ----------------- Activity Counts ----------------- */
+/* ========== ACTIVITY COUNTS ========== */
 
 function renderActivityCounts(counts) {
   let html = `<div class="metric-row">`;
@@ -139,7 +223,7 @@ function renderActivityCounts(counts) {
   document.getElementById("activity-counts").innerHTML += html;
 }
 
-/* ----------------- Annual Stats ----------------- */
+/* ========== ANNUAL STATS ========== */
 
 let selectedTypes = new Set();
 
@@ -249,9 +333,11 @@ function updateAnnualStatsTable(data) {
   document.getElementById("annual-stats-table").innerHTML = html;
 }
 
-/* ----------------- Bike Stats ----------------- */
+/* ========== BIKE STATS ========== */
 
 function renderBikeStats(bikeYearStats, gearTotals, gearDetails) {
+  allGearData = gearTotals;
+  
   const gearNames = {};
   for (const gid of Object.keys(gearDetails)) {
     gearNames[gid] = gearDetails[gid].name || gid;
@@ -266,12 +352,15 @@ function renderBikeStats(bikeYearStats, gearTotals, gearDetails) {
       <div class="card">
         <div class="accent-bar"></div>
         <div class="card-header">
-          <svg class="icon-lg" viewBox="0 0 24 24">
-            <circle cx="5" cy="17" r="3" stroke="#4a90e2" stroke-width="2" fill="none"/>
-            <circle cx="19" cy="17" r="3" stroke="#4a90e2" stroke-width="2" fill="none"/>
-            <path d="M5 17l6-10 4 6h4" stroke="#4a90e2" stroke-width="2" fill="none"/>
-          </svg>
-          ${gearNames[gid]}
+          <div class="bike-header-content">
+            <svg class="icon-lg" viewBox="0 0 24 24">
+              <circle cx="5" cy="17" r="3" stroke="#4a90e2" stroke-width="2" fill="none"/>
+              <circle cx="19" cy="17" r="3" stroke="#4a90e2" stroke-width="2" fill="none"/>
+              <path d="M5 17l6-10 4 6h4" stroke="#4a90e2" stroke-width="2" fill="none"/>
+            </svg>
+            <span>${gearNames[gid]}</span>
+          </div>
+          <input type="checkbox" id="checkbox-${gid}" class="bike-checkbox" onchange="toggleBikeSelection('${gid}', '${gearNames[gid]}')">
         </div>
 
         <div class="metric-row">
