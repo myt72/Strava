@@ -45,23 +45,6 @@ function iconRides() {
   `;
 }
 
-function iconSpeed() {
-  return `
-    <svg class="icon" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none"/>
-      <path d="M12 7v5l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-    </svg>
-  `;
-}
-
-function iconSegments() {
-  return `
-    <svg class="icon" viewBox="0 0 24 24">
-      <path d="M3 9h8M3 15h8M13 9h8M13 15h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-    </svg>
-  `;
-}
-
 function showSpinner() {
   document.getElementById("spinner").style.display = "block";
 }
@@ -76,7 +59,8 @@ const STORAGE_KEYS = {
   pinnedBikes: "strava:pinnedBikes",
   bikeSearch: "strava:bikeSearch",
   bikeSort: "strava:bikeSort",
-  theme: "strava:theme"
+  theme: "strava:theme",
+  expandedYears: "strava:expandedYears"
 };
 
 let selectedBikes = new Map(); // gid -> { name, data }
@@ -84,6 +68,7 @@ let allGearData = {};
 let currentBikeRows = [];
 let selectedTypes = new Set();
 let pinnedBikes = new Set(JSON.parse(localStorage.getItem(STORAGE_KEYS.pinnedBikes) || "[]"));
+let expandedYears = new Map(); // gid -> Set of expanded years
 
 function saveSelectedBikes() {
   localStorage.setItem(STORAGE_KEYS.selectedBikes, JSON.stringify(Array.from(selectedBikes.keys())));
@@ -91,6 +76,29 @@ function saveSelectedBikes() {
 
 function savePinnedBikes() {
   localStorage.setItem(STORAGE_KEYS.pinnedBikes, JSON.stringify(Array.from(pinnedBikes.values())));
+}
+
+function saveExpandedYears() {
+  const data = {};
+  for (const [gid, years] of expandedYears.entries()) {
+    data[gid] = Array.from(years);
+  }
+  localStorage.setItem(STORAGE_KEYS.expandedYears, JSON.stringify(data));
+}
+
+function restoreExpandedYears() {
+  const saved = localStorage.getItem(STORAGE_KEYS.expandedYears);
+  if (saved) {
+    try {
+      const data = JSON.parse(saved);
+      expandedYears.clear();
+      for (const [gid, years] of Object.entries(data)) {
+        expandedYears.set(gid, new Set(years));
+      }
+    } catch (e) {
+      expandedYears.clear();
+    }
+  }
 }
 
 function setLastSyncLabel() {
@@ -302,6 +310,7 @@ function restoreBikeFilterInputs() {
 window.onload = async () => {
   applyThemePreference();
   restoreBikeFilterInputs();
+  restoreExpandedYears();
 
   const statusDiv = document.getElementById("status");
 
@@ -504,7 +513,81 @@ function updateAnnualStatsTable(data) {
   document.getElementById("annual-stats-table").innerHTML = html;
 }
 
-/* ========== BIKE STATS ========== */
+/* ========== BIKE STATS WITH WEEKLY BREAKDOWN ========== */
+
+function toggleWeekExpansion(gid, year) {
+  if (!expandedYears.has(gid)) {
+    expandedYears.set(gid, new Set());
+  }
+  
+  const yearSet = expandedYears.get(gid);
+  if (yearSet.has(year)) {
+    yearSet.delete(year);
+  } else {
+    yearSet.add(year);
+  }
+  
+  saveExpandedYears();
+  updateBikeFilters();
+}
+
+function getTrendIndicator(trend) {
+  if (Math.abs(trend) < 0.01) return "→ Flat";
+  if (trend > 0) return `↑ +${(trend * 100).toFixed(0)}%`;
+  return `↓ ${(trend * 100).toFixed(0)}%`;
+}
+
+function renderYearWithWeekly(row, year, yearData) {
+  const weeks = yearData.weeks || {};
+  const weekKeys = Object.keys(weeks).map(Number).sort((a, b) => a - b);
+  const isExpanded = expandedYears.has(row.gid) && expandedYears.get(row.gid).has(year);
+
+  let html = `
+    <div class="year-card">
+      <div class="year-header">
+        <div class="year-title-section">
+          <button class="week-toggle" onclick="toggleWeekExpansion('${row.gid}', ${year})">
+            ${isExpanded ? "▼" : "▶"}
+          </button>
+          <div class="year-title">${year}</div>
+        </div>
+        <div class="metric-row">
+          <div class="metric">${iconDistance()} ${comma(miles(yearData.distance).toFixed(1))} mi</div>
+          <div class="metric">${iconElevation()} ${comma(feet(yearData.elevation).toFixed(0))} ft</div>
+          <div class="metric">${iconRides()} ${comma(yearData.count)} Activities</div>
+        </div>
+      </div>
+  `;
+
+  if (isExpanded && weekKeys.length > 0) {
+    html += `<div class="weekly-breakdown">`;
+    
+    weekKeys.forEach(weekNum => {
+      const wk = weeks[weekNum];
+      const trend = wk.trend || 0;
+      const trendClass = trend > 0.05 ? "trending-up" : trend < -0.05 ? "trending-down" : "trending-flat";
+      
+      html += `
+        <div class="week-card ${trendClass}">
+          <div class="week-header">
+            <div class="week-number">Week ${weekNum}</div>
+            <div class="trend-badge">${getTrendIndicator(trend)}</div>
+          </div>
+          <div class="metric-row small">
+            <div class="metric">${iconDistance()} ${comma(miles(wk.distance).toFixed(1))} mi</div>
+            <div class="metric">${iconElevation()} ${comma(feet(wk.elevation).toFixed(0))} ft</div>
+            <div class="metric">${iconRides()} ${comma(wk.count)} Activities</div>
+          </div>
+        </div>
+      `;
+    });
+    
+    html += `</div>`;
+  }
+
+  html += `</div>`;
+  return html;
+}
 
 function renderBikeRows(rows) {
   let html = "";
@@ -535,25 +618,12 @@ function renderBikeRows(rows) {
           <div class="metric">${iconDistance()} ${comma(miles(total.distance).toFixed(1))} mi</div>
           <div class="metric">${iconElevation()} ${comma(feet(total.elevation).toFixed(0))} ft</div>
           <div class="metric">${iconRides()} ${comma(total.count)} Activities</div>
-          ${total.avg_speed_mph ? `<div class="metric">${iconSpeed()} ${total.avg_speed_mph.toFixed(1)} mph</div>` : ''}
-          ${total.pr_count ? `<div class="metric">${iconSegments()} ${total.pr_count} PRs</div>` : ''}
         </div>
     `;
 
     row.years.forEach(year => {
       const y = row.bikeYearStats[year];
-      card += `
-        <div class="year-card">
-          <div class="year-title">${year}</div>
-          <div class="metric-row">
-            <div class="metric">${iconDistance()} ${comma(miles(y.distance).toFixed(1))} mi</div>
-            <div class="metric">${iconElevation()} ${comma(feet(y.elevation).toFixed(0))} ft</div>
-            <div class="metric">${iconRides()} ${comma(y.count)} Activities</div>
-            ${y.avg_speed_mph ? `<div class="metric">${iconSpeed()} ${y.avg_speed_mph.toFixed(1)} mph</div>` : ''}
-            ${y.pr_count ? `<div class="metric">${iconSegments()} ${y.pr_count} PRs</div>` : ''}
-          </div>
-        </div>
-      `;
+      card += renderYearWithWeekly(row, year, y);
     });
 
     card += `</div>`;
@@ -576,8 +646,7 @@ function renderBikeStats(bikeYearStats, gearTotals, gearDetails) {
 
   const gearNames = {};
   for (const gid of Object.keys(gearDetails)) {
-    const detail = gearDetails[gid];
-    gearNames[gid] = (detail && detail.name) || gid;
+    gearNames[gid] = gearDetails[gid].name || gid;
   }
 
   const rememberedBikes = JSON.parse(localStorage.getItem(STORAGE_KEYS.selectedBikes) || "[]");
