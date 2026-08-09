@@ -11,140 +11,54 @@
   <div id="main">
     <div class="header-top">
       <h1>Strava Dashboard</h1>
-      
-      <!-- Advanced Actions Menu -->
-      <div class="advanced-actions-menu">
-        <button class="menu-trigger" onclick="toggleAdvancedMenu()" title="Advanced Actions">
-          <svg viewBox="0 0 24 24" width="24" height="24">
-            <circle cx="6" cy="12" r="2" fill="currentColor"/>
-            <circle cx="12" cy="12" r="2" fill="currentColor"/>
-            <circle cx="18" cy="12" r="2" fill="currentColor"/>
-          </svg>
+      <div class="utility-actions">
+        <button id="theme-toggle" class="menu-trigger secondary-trigger" title="Toggle theme" onclick="toggleTheme()">
+          ◐
         </button>
-        <div id="advanced-menu" class="dropdown-menu">
-          <button class="dropdown-item" onclick="refreshData(); toggleAdvancedMenu()">
-            <span class="icon">⟳</span>
-            Refresh (only new activities)
+
+        <div class="advanced-actions-menu">
+          <button class="menu-trigger" onclick="toggleAdvancedMenu()" title="Advanced Actions">
+            <svg viewBox="0 0 24 24" width="24" height="24">
+              <circle cx="6" cy="12" r="2" fill="currentColor"/>
+              <circle cx="12" cy="12" r="2" fill="currentColor"/>
+              <circle cx="18" cy="12" r="2" fill="currentColor"/>
+            </svg>
           </button>
-          <button class="dropdown-item" onclick="fullPull(); toggleAdvancedMenu()">
-            <span class="icon">↻</span>
-            Full Data Pull
-          </button>
+          <div id="advanced-menu" class="dropdown-menu">
+            <button class="dropdown-item" onclick="refreshData(); toggleAdvancedMenu()">
+              <span class="icon">⟳</span>
+              Refresh (only new activities)
+            </button>
+            <button class="dropdown-item" onclick="fullPull(); toggleAdvancedMenu()">
+              <span class="icon">↻</span>
+              Full Data Pull
+            </button>
+          </div>
         </div>
       </div>
     </div>
 
-    <div id="status"></div>
-
-    <div id="spinner" style="display:none; margin-top:10px;">
-      <div style="
-        border: 6px solid #f3f3f3;
-        border-top: 6px solid #4a90e2;
-        border-radius: 50%;
-        width: 40px;
-        height: 40px;
-        animation: spin 1s linear infinite;
-        margin: auto;
-      "></div>
+    <div class="status-bar">
+      <div id="status"></div>
+      <div id="last-sync"></div>
     </div>
 
-    <style>
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
+    <div id="spinner">
+      <div class="spinner-wheel"></div>
+    </div>
 
-      .card-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-        gap: 24px;
-        margin-top: 24px;
-      }
-
-      .card {
-        background: #fff;
-        border-radius: 12px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-        padding: 20px;
-      }
-
-      .accent-bar {
-        height: 4px;
-        background: #4a90e2;
-        border-radius: 8px 8px 0 0;
-        margin: -20px -20px 16px -20px;
-      }
-
-      .card-header {
-        font-size: 20px;
-        font-weight: 600;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin-bottom: 16px;
-        justify-content: space-between;
-      }
-
-      .bike-header-content {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-
-      .bike-checkbox {
-        width: 20px;
-        height: 20px;
-        cursor: pointer;
-      }
-
-      .metric-row {
-        display: flex;
-        gap: 24px;
-        flex-wrap: wrap;
-        margin-bottom: 16px;
-      }
-
-      .metric {
-        font-size: 16px;
-        font-weight: 500;
-        white-space: nowrap;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
-
-      .year-card {
-        background: #f7f7f7;
-        padding: 12px;
-        border-radius: 8px;
-        margin-bottom: 12px;
-      }
-
-      .year-title {
-        font-weight: 600;
-        margin-bottom: 8px;
-      }
-
-      .icon {
-        width: 18px;
-        height: 18px;
-      }
-
-      .icon-lg {
-        width: 20px;
-        height: 20px;
-      }
-    </style>
+    <div id="kpi-summary" class="kpi-grid"></div>
 
     <!-- Activity Counts FIRST -->
     <div id="activity-counts" class="card">
       <div class="accent-bar"></div>
       <div class="card-header">
         <svg class="icon-lg" viewBox="0 0 24 24">
-          <path d="M4 6h16M4 12h16M4 18h16" stroke="#4a90e2" stroke-width="2" stroke-linecap="round"/>
+          <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
         Activity Counts
       </div>
+      <div id="activity-counts-content"></div>
     </div>
 
     <!-- Annual Stats SECOND -->
@@ -152,20 +66,34 @@
       <div class="accent-bar"></div>
       <div class="card-header">
         <svg class="icon-lg" viewBox="0 0 24 24">
-          <path d="M4 18V6m6 12V10m6 8V4m6 14V8" stroke="#4a90e2" stroke-width="2"/>
+          <path d="M4 18V6m6 12V10m6 8V4m6 14V8" stroke="currentColor" stroke-width="2"/>
         </svg>
         Annual Stats
       </div>
 
       <h3>Filter Activity Types</h3>
-      <div id="activity-type-checkboxes" style="display:flex; gap:20px; flex-wrap:wrap;"></div>
+      <div id="activity-type-checkboxes"></div>
 
       <div id="annual-stats-table"></div>
     </div>
 
     <!-- Bike Comparison Section -->
-    <div id="bike-comparison-section" class="card" style="display:none; margin-bottom: 24px; background: #e8f4f8; border-left: 4px solid #4a90e2;">
+    <div id="bike-comparison-section" class="card comparison-panel">
       <div id="comparison-content"></div>
+    </div>
+
+    <div class="card bike-controls-card">
+      <div class="bike-controls">
+        <input id="bike-search" type="text" placeholder="Search bikes..." oninput="updateBikeFilters()">
+        <select id="bike-sort" onchange="updateBikeFilters()">
+          <option value="distance-desc">Sort: Distance (high to low)</option>
+          <option value="distance-asc">Sort: Distance (low to high)</option>
+          <option value="rides-desc">Sort: Activities (high to low)</option>
+          <option value="rides-asc">Sort: Activities (low to high)</option>
+          <option value="name-asc">Sort: Name (A-Z)</option>
+          <option value="name-desc">Sort: Name (Z-A)</option>
+        </select>
+      </div>
     </div>
 
     <!-- Bike cards -->
