@@ -11,160 +11,77 @@
   <div id="main">
     <div class="header-top">
       <h1>Strava Dashboard</h1>
-      
-      <!-- Advanced Actions Menu -->
-      <div class="advanced-actions-menu">
-        <button class="menu-trigger" onclick="toggleAdvancedMenu()" title="Advanced Actions">
-          <svg viewBox="0 0 24 24" width="24" height="24">
-            <circle cx="6" cy="12" r="2" fill="currentColor"/>
-            <circle cx="12" cy="12" r="2" fill="currentColor"/>
-            <circle cx="18" cy="12" r="2" fill="currentColor"/>
-          </svg>
-        </button>
-        <div id="advanced-menu" class="dropdown-menu">
-          <button class="dropdown-item" onclick="refreshData(); toggleAdvancedMenu()">
-            <span class="icon">⟳</span>
-            Refresh (only new activities)
+
+      <div class="header-actions">
+        <!-- Dark/Light mode toggle -->
+        <button class="theme-toggle" id="theme-toggle" title="Toggle dark/light mode" onclick="toggleTheme()">🌙</button>
+
+        <!-- Advanced Actions Menu -->
+        <div class="advanced-actions-menu">
+          <button class="menu-trigger" onclick="toggleAdvancedMenu()" title="Advanced Actions">
+            <svg viewBox="0 0 24 24" width="24" height="24">
+              <circle cx="6" cy="12" r="2" fill="currentColor"/>
+              <circle cx="12" cy="12" r="2" fill="currentColor"/>
+              <circle cx="18" cy="12" r="2" fill="currentColor"/>
+            </svg>
           </button>
-          <button class="dropdown-item" onclick="fullPull(); toggleAdvancedMenu()">
-            <span class="icon">↻</span>
-            Full Data Pull
-          </button>
+          <div id="advanced-menu" class="dropdown-menu">
+            <button class="dropdown-item" onclick="refreshData(); toggleAdvancedMenu()">
+              <span class="icon">⟳</span>
+              Refresh (only new activities)
+            </button>
+            <button class="dropdown-item" onclick="fullPull(); toggleAdvancedMenu()">
+              <span class="icon">↻</span>
+              Full Data Pull
+            </button>
+          </div>
         </div>
       </div>
     </div>
 
     <div id="status"></div>
 
-    <div id="spinner" style="display:none; margin-top:10px;">
-      <div style="
-        border: 6px solid #f3f3f3;
-        border-top: 6px solid #4a90e2;
-        border-radius: 50%;
-        width: 40px;
-        height: 40px;
-        animation: spin 1s linear infinite;
-        margin: auto;
-      "></div>
+    <div id="spinner" style="display:none;">
+      <div class="spinner-circle"></div>
     </div>
 
-    <style>
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
+    <!-- KPI Summary Bar -->
+    <div id="kpi-bar" class="kpi-bar" style="display:none;"></div>
 
-      .card-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-        gap: 24px;
-        margin-top: 24px;
-      }
-
-      .card {
-        background: #fff;
-        border-radius: 12px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-        padding: 20px;
-      }
-
-      .accent-bar {
-        height: 4px;
-        background: #4a90e2;
-        border-radius: 8px 8px 0 0;
-        margin: -20px -20px 16px -20px;
-      }
-
-      .card-header {
-        font-size: 20px;
-        font-weight: 600;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin-bottom: 16px;
-        justify-content: space-between;
-      }
-
-      .bike-header-content {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-
-      .bike-checkbox {
-        width: 20px;
-        height: 20px;
-        cursor: pointer;
-      }
-
-      .metric-row {
-        display: flex;
-        gap: 24px;
-        flex-wrap: wrap;
-        margin-bottom: 16px;
-      }
-
-      .metric {
-        font-size: 16px;
-        font-weight: 500;
-        white-space: nowrap;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
-
-      .year-card {
-        background: #f7f7f7;
-        padding: 12px;
-        border-radius: 8px;
-        margin-bottom: 12px;
-      }
-
-      .year-title {
-        font-weight: 600;
-        margin-bottom: 8px;
-      }
-
-      .icon {
-        width: 18px;
-        height: 18px;
-      }
-
-      .icon-lg {
-        width: 20px;
-        height: 20px;
-      }
-    </style>
-
-    <!-- Activity Counts FIRST -->
+    <!-- Activity Counts -->
     <div id="activity-counts" class="card">
       <div class="accent-bar"></div>
       <div class="card-header">
-        <svg class="icon-lg" viewBox="0 0 24 24">
-          <path d="M4 6h16M4 12h16M4 18h16" stroke="#4a90e2" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        Activity Counts
+        <div style="display:flex;align-items:center;gap:8px;">
+          <svg class="icon-lg" viewBox="0 0 24 24">
+            <path d="M4 6h16M4 12h16M4 18h16" stroke="var(--clr-accent)" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          Activity Counts
+        </div>
       </div>
+      <div id="activity-counts-content"></div>
     </div>
 
-    <!-- Annual Stats SECOND -->
+    <!-- Annual Stats -->
     <div id="annual-card" class="card">
       <div class="accent-bar"></div>
       <div class="card-header">
-        <svg class="icon-lg" viewBox="0 0 24 24">
-          <path d="M4 18V6m6 12V10m6 8V4m6 14V8" stroke="#4a90e2" stroke-width="2"/>
-        </svg>
-        Annual Stats
+        <div style="display:flex;align-items:center;gap:8px;">
+          <svg class="icon-lg" viewBox="0 0 24 24">
+            <path d="M4 18V6m6 12V10m6 8V4m6 14V8" stroke="var(--clr-accent)" stroke-width="2"/>
+          </svg>
+          Annual Stats
+        </div>
       </div>
 
-      <h3>Filter Activity Types</h3>
-      <div id="activity-type-checkboxes" style="display:flex; gap:20px; flex-wrap:wrap;"></div>
+      <h3 style="font-size:14px;color:var(--clr-text-muted);font-weight:500;margin-bottom:8px;">Filter Activity Types</h3>
+      <div id="activity-type-checkboxes"></div>
 
       <div id="annual-stats-table"></div>
     </div>
 
     <!-- Bike Comparison Section -->
-    <div id="bike-comparison-section" class="card" style="display:none; margin-bottom: 24px; background: #e8f4f8; border-left: 4px solid #4a90e2;">
+    <div id="bike-comparison-section" class="card" style="display:none; margin-bottom:24px;">
       <div id="comparison-content"></div>
     </div>
 
@@ -174,12 +91,32 @@
   </div>
 
   <script>
+    /* ===== THEME ===== */
+    (function() {
+      const saved = localStorage.getItem('theme') || 'light';
+      document.documentElement.setAttribute('data-theme', saved);
+    })();
+
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme') || 'light';
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      document.getElementById('theme-toggle').textContent = next === 'dark' ? '☀️' : '🌙';
+    }
+
+    // Set correct icon on load
+    window.addEventListener('DOMContentLoaded', function() {
+      const theme = document.documentElement.getAttribute('data-theme') || 'light';
+      document.getElementById('theme-toggle').textContent = theme === 'dark' ? '☀️' : '🌙';
+    });
+
+    /* ===== ADVANCED MENU ===== */
     function toggleAdvancedMenu() {
       const menu = document.getElementById('advanced-menu');
       menu.classList.toggle('open');
     }
 
-    // Close menu when clicking outside
     document.addEventListener('click', function(event) {
       const menu = document.getElementById('advanced-menu');
       const trigger = document.querySelector('.menu-trigger');
