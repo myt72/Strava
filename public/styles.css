@@ -14,6 +14,8 @@
   --accent: #3f7fd8;
   --accent-strong: #2f68b8;
   --danger: #c23b3b;
+  --success: #2ea944;
+  --warning: #d97e0a;
   --shadow: 0 8px 24px rgba(9, 24, 51, 0.08);
   --radius: 12px;
 }
@@ -29,6 +31,8 @@ body.dark {
   --accent: #72a8ff;
   --accent-strong: #5595ff;
   --danger: #dd6d6d;
+  --success: #4cd964;
+  --warning: #ff9500;
   --shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
 }
 
@@ -282,6 +286,11 @@ h3 {
   margin-bottom: 12px;
 }
 
+.metric-row.small {
+  gap: 16px;
+  font-size: 14px;
+}
+
 .metric {
   font-size: 16px;
   font-weight: 500;
@@ -300,10 +309,38 @@ h3 {
   border: 1px solid var(--border);
 }
 
+.year-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.year-title-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .year-title {
   font-weight: 600;
-  margin-bottom: 8px;
   color: var(--text-muted);
+}
+
+.week-toggle {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  font-size: 12px;
+  min-height: auto;
+  transition: color 0.2s ease;
+}
+
+.week-toggle:hover {
+  color: var(--accent);
 }
 
 .icon {
@@ -455,6 +492,74 @@ h3 {
   border-color: var(--accent);
 }
 
+/* ========== WEEKLY BREAKDOWN ========== */
+
+.weekly-breakdown {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.week-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 13px;
+}
+
+.week-card.trending-up {
+  border-left: 3px solid var(--success);
+}
+
+.week-card.trending-down {
+  border-left: 3px solid var(--danger);
+}
+
+.week-card.trending-flat {
+  border-left: 3px solid var(--warning);
+}
+
+.week-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  gap: 6px;
+}
+
+.week-number {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.trend-badge {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.week-card.trending-up .trend-badge {
+  background: rgba(46, 169, 68, 0.1);
+  color: var(--success);
+}
+
+.week-card.trending-down .trend-badge {
+  background: rgba(194, 59, 59, 0.1);
+  color: var(--danger);
+}
+
+.week-card.trending-flat .trend-badge {
+  background: rgba(217, 126, 10, 0.1);
+  color: var(--warning);
+}
+
 .card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
@@ -508,6 +613,11 @@ h3 {
     font-size: 14px;
   }
 
+  .year-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   #activity-type-checkboxes {
     flex-direction: column;
     gap: 8px;
@@ -536,78 +646,11 @@ h3 {
     align-items: stretch;
     gap: 8px;
   }
-}
 
-/* ============================================= */
-/* WEEK BREAKDOWN & TREND STYLES */
-/* ============================================= */
-
-.year-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-  cursor: pointer;
-  user-select: none;
-}
-
-.week-toggle-btn {
-  background: none;
-  border: none;
-  font-size: 12px;
-  color: #4a90e2;
-  cursor: pointer;
-  padding: 2px 6px;
-  margin: 0;
-  line-height: 1;
-  min-height: unset;
-  border-radius: 4px;
-  transition: background 0.15s ease;
-}
-
-.week-toggle-btn:hover {
-  background: #e8f0fb;
-}
-
-.weeks-container {
-  border-top: 1px solid #e0e0e0;
-  margin-top: 8px;
-  padding-top: 8px;
-}
-
-.week-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding: 6px 0;
-  border-bottom: 1px solid #ebebeb;
-  font-size: 14px;
-}
-
-.week-row:last-child {
-  border-bottom: none;
-}
-
-.week-label {
-  font-weight: 600;
-  min-width: 48px;
-  color: #555;
-}
-
-.speed-metric {
-  color: #2e7d32;
-  font-weight: 500;
-}
-
-.trend-up {
-  color: #2e7d32;
-  font-weight: 600;
-}
-
-.trend-down {
-  color: #c62828;
-  font-weight: 600;
+  .weekly-breakdown {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -626,5 +669,9 @@ h3 {
   .bike-controls input,
   .bike-controls select {
     min-width: 100%;
+  }
+
+  .weekly-breakdown {
+    grid-template-columns: 1fr;
   }
 }
