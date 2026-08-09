@@ -226,7 +226,7 @@ body {
 
 .weekly-breakdown {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 12px;
   margin-top: 12px;
   padding-top: 12px;
@@ -236,23 +236,22 @@ body {
 .week-card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-left: 3px solid var(--warning);
-  border-radius: 6px;
-  padding: 10px;
+  border-radius: 8px;
+  padding: 12px;
 }
 
 .week-card.trending-up {
-  border-left-color: var(--success);
+  border-left: 3px solid var(--success);
   background: rgba(46, 169, 68, 0.05);
 }
 
 .week-card.trending-down {
-  border-left-color: var(--danger);
+  border-left: 3px solid var(--danger);
   background: rgba(194, 59, 59, 0.05);
 }
 
 .week-card.trending-flat {
-  border-left-color: var(--warning);
+  border-left: 3px solid var(--warning);
   background: rgba(217, 126, 10, 0.05);
 }
 
