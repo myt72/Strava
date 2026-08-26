@@ -457,26 +457,77 @@ body {
 
 /* ========== ANNUAL STATS ========== */
 
+#annual-card {
+  padding-bottom: 16px;
+}
+
+.annual-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.annual-controls-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
 #activity-type-checkboxes {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
-  margin-bottom: 20px;
+  gap: 8px;
+  margin-bottom: 0;
 }
 
-#activity-type-checkboxes label {
+.filter-chip label {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   cursor: pointer;
   user-select: none;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-muted);
+  font-size: 13px;
 }
 
-#activity-type-checkboxes input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
+.filter-chip input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
   cursor: pointer;
   accent-color: var(--accent);
+}
+
+.annual-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.annual-stat-card {
+  margin-bottom: 0;
+  padding: 10px 12px;
+}
+
+.annual-stat-card-total {
+  background: var(--surface-strong);
+}
+
+.metric-row.compact {
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 0;
+}
+
+.metric-row.compact .metric {
+  font-size: 14px;
 }
 
 /* ========== UTILITIES ========== */
@@ -664,8 +715,21 @@ body {
   }
 
   #activity-type-checkboxes {
-    flex-direction: column;
+    width: 100%;
     gap: 8px;
+  }
+
+  .annual-controls {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .annual-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-chip label {
+    width: 100%;
   }
 
   .dropdown-menu {

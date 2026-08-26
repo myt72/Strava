@@ -423,10 +423,11 @@ function renderAnnualStats(data) {
   const storedTypes = JSON.parse(localStorage.getItem(STORAGE_KEYS.selectedTypes) || "null");
 
   const allDiv = document.createElement("div");
+  allDiv.className = "filter-chip";
   allDiv.innerHTML = `
     <label>
       <input type="checkbox" id="chk-all">
-      <strong>ALL</strong>
+      <span>All</span>
     </label>
   `;
   container.appendChild(allDiv);
@@ -436,10 +437,11 @@ function renderAnnualStats(data) {
   types.forEach(type => {
     const id = `chk-${type}`;
     const div = document.createElement("div");
+    div.className = "filter-chip";
     div.innerHTML = `
       <label>
         <input type="checkbox" id="${id}" ${selectedTypes.has(type) ? "checked" : ""}>
-        ${type}
+        <span>${type}</span>
       </label>
     `;
     container.appendChild(div);
@@ -493,10 +495,12 @@ function updateAnnualStatsTable(data) {
 
   const years = Object.keys(annual).sort((a, b) => b - a);
 
-  let html = `
-    <div class="year-card">
+  let html = `<div class="annual-stats-grid">`;
+
+  html += `
+    <div class="year-card annual-stat-card annual-stat-card-total">
       <div class="year-title">Total</div>
-      <div class="metric-row">
+      <div class="metric-row compact">
         <div class="metric">${iconDistance()} ${comma(miles(totalDistance).toFixed(1))} mi</div>
         <div class="metric">${iconElevation()} ${comma(feet(totalElevation).toFixed(0))} ft</div>
         <div class="metric">${iconRides()} ${comma(totalCount)} Activities</div>
@@ -507,9 +511,9 @@ function updateAnnualStatsTable(data) {
   years.forEach(year => {
     const y = annual[year];
     html += `
-      <div class="year-card">
+      <div class="year-card annual-stat-card">
         <div class="year-title">${year}</div>
-        <div class="metric-row">
+        <div class="metric-row compact">
           <div class="metric">${iconDistance()} ${comma(miles(y.distance).toFixed(1))} mi</div>
           <div class="metric">${iconElevation()} ${comma(feet(y.elevation).toFixed(0))} ft</div>
           <div class="metric">${iconRides()} ${comma(y.count)} Activities</div>
@@ -517,6 +521,8 @@ function updateAnnualStatsTable(data) {
       </div>
     `;
   });
+
+  html += `</div>`;
 
   document.getElementById("annual-stats-table").innerHTML = html;
 }
