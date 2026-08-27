@@ -207,6 +207,14 @@ body {
   color: var(--text-muted);
 }
 
+.year-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+}
+
 .week-toggle {
   background: none;
   border: none;
@@ -222,6 +230,46 @@ body {
 
 .week-toggle:hover {
   color: var(--accent-strong);
+}
+
+.week-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--accent);
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.week-toggle-btn:hover {
+  background: var(--surface-muted);
+  border-color: var(--accent);
+}
+
+.week-toggle-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(63, 127, 216, 0.15);
+}
+
+.chevron-icon {
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+  margin-top: -2px;
+}
+
+.week-toggle-btn.open .chevron-icon {
+  transform: rotate(225deg);
+  margin-top: 2px;
 }
 
 .weekly-breakdown {
@@ -504,52 +552,6 @@ body {
   accent-color: var(--accent);
 }
 
-.annual-stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
-}
-
-/* ========== UTILITIES ========== */
-
-.speed-metric {
-  font-weight: 600;
-  color: var(--accent);
-}
-
-.trend-up {
-  color: var(--success);
-  font-weight: 600;
-}
-
-.trend-down {
-  color: var(--danger);
-  font-weight: 600;
-}
-
-/* ========== HEADER ========== */
-
-.header-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.header-top h1 {
-  margin: 0;
-  color: var(--text);
-  font-size: 32px;
-}
-
-.utility-actions {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
 .annual-stats-rows {
   display: flex;
   flex-direction: column;
@@ -600,21 +602,46 @@ body {
   white-space: nowrap;
 }
 
-@media (max-width: 768px) {
-  .annual-stats-row,
-  .annual-stats-row-header {
-    grid-template-columns: 1fr;
-    gap: 6px;
-  }
+/* ========== UTILITIES ========== */
 
-  .annual-stats-row-header {
-    display: none;
-  }
-
-  .annual-col-metric {
-    white-space: normal;
-  }
+.speed-metric {
+  font-weight: 600;
+  color: var(--accent);
 }
+
+.trend-up {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.trend-down {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* ========== HEADER ========== */
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.header-top h1 {
+  margin: 0;
+  color: var(--text);
+  font-size: 32px;
+}
+
+.utility-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
 /* ========== MENU ========== */
 
 .advanced-actions-menu {
@@ -767,6 +794,20 @@ body {
   .annual-controls {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .annual-stats-row,
+  .annual-stats-row-header {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .annual-stats-row-header {
+    display: none;
+  }
+
+  .annual-col-metric {
+    white-space: normal;
   }
 
   .filter-chip label {
