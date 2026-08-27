@@ -13,7 +13,7 @@
       <h1>Strava Dashboard</h1>
       <div class="utility-actions">
         <button id="theme-toggle" class="menu-trigger secondary-trigger" title="Toggle theme" onclick="toggleTheme()">
-          ◐
+          ?
         </button>
 
         <div class="advanced-actions-menu">
@@ -26,15 +26,15 @@
           </button>
           <div id="advanced-menu" class="dropdown-menu">
             <button class="dropdown-item" onclick="refreshData(); toggleAdvancedMenu()">
-              <span class="icon">⟳</span>
+              <span class="icon">?</span>
               Refresh (only new activities)
             </button>
             <button class="dropdown-item" onclick="fullPull(); toggleAdvancedMenu()">
-              <span class="icon">↻</span>
+              <span class="icon">?</span>
               Full Data Pull
             </button>
             <button class="dropdown-item" onclick="resumePull(); toggleAdvancedMenu()">
-              <span class="icon">↩</span>
+              <span class="icon">?</span>
               Resume Pull (fill gaps)
             </button>
           </div>
@@ -75,8 +75,10 @@
         Annual Stats
       </div>
 
-      <h3>Filter Activity Types</h3>
-      <div id="activity-type-checkboxes"></div>
+      <div class="annual-controls">
+        <div class="annual-controls-label">Filter activity types</div>
+        <div id="activity-type-checkboxes" class="filter-chip-group"></div>
+      </div>
 
       <div id="annual-stats-table"></div>
     </div>
