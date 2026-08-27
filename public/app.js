@@ -30,6 +30,16 @@ function formatSpeed(avg_speed_mph, sport_type = "Ride") {
   return `avg ${avg_speed_mph.toFixed(1)} mph`;
 }
 
+function formatDuration(seconds) {
+  const total = Math.max(0, Math.round(seconds || 0));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+
+  if (hours === 0) return `${minutes}m`;
+  if (minutes === 0) return `${hours}h`;
+  return `${hours}h ${minutes}m`;
+}
+
 function trendIndicator(trend) {
   if (trend === 0 || trend == null) return "";
   if (trend > 0) return `<span class="trend-up">Up ${(trend * 100).toFixed(0)}%</span>`;
@@ -71,14 +81,6 @@ function iconSpeed() {
   `;
 }
 
-function iconSegments() {
-  return `
-    <svg class="icon" viewBox="0 0 24 24">
-      <path d="M3 9h8M3 15h8M13 9h8M13 15h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-    </svg>
-  `;
-}
-
 function showSpinner() {
   document.getElementById("spinner").style.display = "block";
 }
@@ -87,13 +89,36 @@ function hideSpinner() {
   document.getElementById("spinner").style.display = "none";
 }
 
+function getWeekStartMonday(dateStr) {
+  const d = new Date(dateStr);
+  const local = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const day = local.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  local.setDate(local.getDate() + diff);
+  local.setHours(0, 0, 0, 0);
+  return local;
+}
+
+function formatShortDate(date) {
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  const yyyy = date.getFullYear();
+  return `${mm}/${dd}/${yyyy}`;
+}
+
+function formatMonthLabel(monthIndex) {
+  return ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][monthIndex];
+}
+
 const STORAGE_KEYS = {
   selectedTypes: "strava:selectedTypes",
   selectedBikes: "strava:selectedBikes",
   pinnedBikes: "strava:pinnedBikes",
   bikeSearch: "strava:bikeSearch",
   bikeSort: "strava:bikeSort",
-  theme: "strava:theme"
+  theme: "strava:theme",
+  annualExpandedYears: "strava:annualExpandedYears",
+  annualBreakdownMode: "strava:annualBreakdownMode"
 };
 
 let selectedBikes = new Map();
@@ -101,6 +126,8 @@ let allGearData = {};
 let currentBikeRows = [];
 let selectedTypes = new Set();
 let pinnedBikes = new Set(JSON.parse(localStorage.getItem(STORAGE_KEYS.pinnedBikes) || "[]"));
+let annualExpandedYears = new Set(JSON.parse(localStorage.getItem(STORAGE_KEYS.annualExpandedYears) || "[]"));
+let annualBreakdownMode = localStorage.getItem(STORAGE_KEYS.annualBreakdownMode) || "monthly";
 
 function saveSelectedBikes() {
   localStorage.setItem(STORAGE_KEYS.selectedBikes, JSON.stringify(Array.from(selectedBikes.keys())));
@@ -108,6 +135,15 @@ function saveSelectedBikes() {
 
 function savePinnedBikes() {
   localStorage.setItem(STORAGE_KEYS.pinnedBikes, JSON.stringify(Array.from(pinnedBikes.values())));
+}
+
+function saveAnnualExpandedYears() {
+  localStorage.setItem(STORAGE_KEYS.annualExpandedYears, JSON.stringify(Array.from(annualExpandedYears.values())));
+}
+
+function setAnnualBreakdownMode(mode) {
+  annualBreakdownMode = mode === "weekly" ? "weekly" : "monthly";
+  localStorage.setItem(STORAGE_KEYS.annualBreakdownMode, annualBreakdownMode);
 }
 
 function setLastSyncLabel() {
@@ -415,7 +451,204 @@ function renderActivityCounts(counts) {
 
 /* ========== ANNUAL STATS ========== */
 
+function toggleAnnualYear(year) {
+  if (annualExpandedYears.has(String(year))) annualExpandedYears.delete(String(year));
+  else annualExpandedYears.add(String(year));
+  saveAnnualExpandedYears();
+}
+
+function buildAnnualBreakdowns(data) {
+  const annual = {};
+  let totalDistance = 0;
+  let totalElevation = 0;
+  let totalCount = 0;
+  let totalMovingTime = 0;
+
+  for (const a of data.activities) {
+    if (!selectedTypes.has(a.sport_type)) continue;
+
+    const date = new Date(a.start_date);
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const movingTime = a.moving_time || 0;
+
+    const weekStart = getWeekStartMonday(a.start_date);
+    const weekKey = formatShortDate(weekStart);
+
+    if (!annual[year]) {
+      annual[year] = {
+        distance: 0,
+        elevation: 0,
+        count: 0,
+        moving_time: 0,
+        months: {},
+        weeks: {}
+      };
+    }
+
+    annual[year].distance += a.distance;
+    annual[year].elevation += a.total_elevation_gain;
+    annual[year].count++;
+    annual[year].moving_time += movingTime;
+
+    if (!annual[year].months[month]) {
+      annual[year].months[month] = {
+        distance: 0,
+        elevation: 0,
+        count: 0,
+        moving_time: 0,
+        label: formatMonthLabel(month)
+      };
+    }
+    annual[year].months[month].distance += a.distance;
+    annual[year].months[month].elevation += a.total_elevation_gain;
+    annual[year].months[month].count++;
+    annual[year].months[month].moving_time += movingTime;
+
+    if (!annual[year].weeks[weekKey]) {
+      annual[year].weeks[weekKey] = {
+        distance: 0,
+        elevation: 0,
+        count: 0,
+        moving_time: 0,
+        label: weekKey
+      };
+    }
+    annual[year].weeks[weekKey].distance += a.distance;
+    annual[year].weeks[weekKey].elevation += a.total_elevation_gain;
+    annual[year].weeks[weekKey].count++;
+    annual[year].weeks[weekKey].moving_time += movingTime;
+
+    totalDistance += a.distance;
+    totalElevation += a.total_elevation_gain;
+    totalCount++;
+    totalMovingTime += movingTime;
+  }
+
+  return { annual, totalDistance, totalElevation, totalCount, totalMovingTime };
+}
+
+function renderAnnualBreakdownItems(items, mode) {
+  const sorted = items.sort((a, b) => {
+    if (mode === "monthly") return b.sortDate - a.sortDate;
+    return b.sortDate - a.sortDate;
+  });
+
+  if (!sorted.length) {
+    return `<div class="annual-breakdown-empty">No ${mode} data</div>`;
+  }
+
+  let html = `<div class="annual-breakdown-list">`;
+  sorted.forEach(item => {
+    html += `
+      <div class="annual-breakdown-item">
+        <div class="annual-breakdown-label">${escapeHtml(item.label)}</div>
+        <div class="annual-breakdown-metrics">
+          <div class="annual-breakdown-metric">${iconDistance()} ${comma(miles(item.distance).toFixed(1))} mi</div>
+          <div class="annual-breakdown-metric">${iconElevation()} ${comma(feet(item.elevation).toFixed(0))} ft</div>
+          <div class="annual-breakdown-metric">${iconRides()} ${comma(item.count)} Activities</div>
+          <div class="annual-breakdown-metric">Time ${formatDuration(item.moving_time)}</div>
+        </div>
+      </div>
+    `;
+  });
+  html += `</div>`;
+  return html;
+}
+
+function updateAnnualStatsTable(data) {
+  const { annual, totalDistance, totalElevation, totalCount, totalMovingTime } = buildAnnualBreakdowns(data);
+  const years = Object.keys(annual).sort((a, b) => b - a);
+
+  let html = `
+    <div class="annual-breakdown-toolbar">
+      <span class="annual-breakdown-toolbar-label">Expanded view</span>
+      <div class="annual-breakdown-mode-toggle" role="tablist" aria-label="Annual breakdown mode">
+        <button
+          type="button"
+          class="annual-breakdown-mode-btn ${annualBreakdownMode === "monthly" ? "active" : ""}"
+          onclick="setAnnualBreakdownMode('monthly'); updateAnnualStatsTable(window.__annualStatsData)"
+        >
+          Monthly
+        </button>
+        <button
+          type="button"
+          class="annual-breakdown-mode-btn ${annualBreakdownMode === "weekly" ? "active" : ""}"
+          onclick="setAnnualBreakdownMode('weekly'); updateAnnualStatsTable(window.__annualStatsData)"
+        >
+          Weekly
+        </button>
+      </div>
+    </div>
+
+    <div class="annual-stats-rows">
+      <div class="annual-stats-row annual-stats-row-header">
+        <div class="annual-col annual-col-year">Year</div>
+        <div class="annual-col annual-col-metric">Distance</div>
+        <div class="annual-col annual-col-metric">Elevation</div>
+        <div class="annual-col annual-col-metric">Activities</div>
+        <div class="annual-col annual-col-metric">Time</div>
+        <div class="annual-col annual-col-toggle">Details</div>
+      </div>
+
+      <div class="annual-stats-row annual-stats-row-total">
+        <div class="annual-col annual-col-year"><strong>Total</strong></div>
+        <div class="annual-col annual-col-metric">${iconDistance()} ${comma(miles(totalDistance).toFixed(1))} mi</div>
+        <div class="annual-col annual-col-metric">${iconElevation()} ${comma(feet(totalElevation).toFixed(0))} ft</div>
+        <div class="annual-col annual-col-metric">${iconRides()} ${comma(totalCount)} Activities</div>
+        <div class="annual-col annual-col-metric">Time ${formatDuration(totalMovingTime)}</div>
+        <div class="annual-col annual-col-toggle"></div>
+      </div>
+  `;
+
+  years.forEach(year => {
+    const y = annual[year];
+    const isExpanded = annualExpandedYears.has(String(year));
+    const breakdownSource = annualBreakdownMode === "monthly" ? y.months : y.weeks;
+    const breakdownItems = Object.entries(breakdownSource).map(([key, value]) => ({
+      ...value,
+      sortDate: annualBreakdownMode === "monthly"
+        ? new Date(Number(year), Number(key), 1).getTime()
+        : new Date(key).getTime()
+    }));
+
+    html += `
+      <div class="annual-year-block">
+        <div class="annual-stats-row annual-year-row ${isExpanded ? "expanded" : ""}">
+          <div class="annual-col annual-col-year">${year}</div>
+          <div class="annual-col annual-col-metric">${iconDistance()} ${comma(miles(y.distance).toFixed(1))} mi</div>
+          <div class="annual-col annual-col-metric">${iconElevation()} ${comma(feet(y.elevation).toFixed(0))} ft</div>
+          <div class="annual-col annual-col-metric">${iconRides()} ${comma(y.count)} Activities</div>
+          <div class="annual-col annual-col-metric">Time ${formatDuration(y.moving_time)}</div>
+          <div class="annual-col annual-col-toggle">
+            <button
+              type="button"
+              class="week-toggle-btn ${isExpanded ? "open" : ""}"
+              aria-expanded="${isExpanded}"
+              aria-label="Toggle ${year} ${annualBreakdownMode} breakdown"
+              onclick="toggleAnnualYear('${year}'); updateAnnualStatsTable(window.__annualStatsData)"
+            >
+              <span class="chevron-icon" aria-hidden="true"></span>
+            </button>
+          </div>
+        </div>
+        ${isExpanded ? `
+          <div class="annual-year-breakdown">
+            ${renderAnnualBreakdownItems(breakdownItems, annualBreakdownMode)}
+          </div>
+        ` : ""}
+      </div>
+    `;
+  });
+
+  html += `</div>`;
+
+  document.getElementById("annual-stats-table").innerHTML = html;
+}
+
 function renderAnnualStats(data) {
+  window.__annualStatsData = data;
+
   const container = document.getElementById("activity-type-checkboxes");
   container.innerHTML = "";
 
@@ -470,63 +703,6 @@ function renderAnnualStats(data) {
   });
 
   updateAnnualStatsTable(data);
-}
-
-function updateAnnualStatsTable(data) {
-  const annual = {};
-  let totalDistance = 0;
-  let totalElevation = 0;
-  let totalCount = 0;
-
-  for (const a of data.activities) {
-    if (!selectedTypes.has(a.sport_type)) continue;
-
-    const year = new Date(a.start_date).getFullYear();
-    if (!annual[year]) annual[year] = { distance: 0, elevation: 0, count: 0 };
-
-    annual[year].distance += a.distance;
-    annual[year].elevation += a.total_elevation_gain;
-    annual[year].count++;
-
-    totalDistance += a.distance;
-    totalElevation += a.total_elevation_gain;
-    totalCount++;
-  }
-
-  const years = Object.keys(annual).sort((a, b) => b - a);
-
-  let html = `
-    <div class="annual-stats-rows">
-      <div class="annual-stats-row annual-stats-row-header">
-        <div class="annual-col annual-col-year">Year</div>
-        <div class="annual-col annual-col-metric">Distance</div>
-        <div class="annual-col annual-col-metric">Elevation</div>
-        <div class="annual-col annual-col-metric">Activities</div>
-      </div>
-
-      <div class="annual-stats-row annual-stats-row-total">
-        <div class="annual-col annual-col-year"><strong>Total</strong></div>
-        <div class="annual-col annual-col-metric">${iconDistance()} ${comma(miles(totalDistance).toFixed(1))} mi</div>
-        <div class="annual-col annual-col-metric">${iconElevation()} ${comma(feet(totalElevation).toFixed(0))} ft</div>
-        <div class="annual-col annual-col-metric">${iconRides()} ${comma(totalCount)}</div>
-      </div>
-  `;
-
-  years.forEach(year => {
-    const y = annual[year];
-    html += `
-      <div class="annual-stats-row">
-        <div class="annual-col annual-col-year">${year}</div>
-        <div class="annual-col annual-col-metric">${iconDistance()} ${comma(miles(y.distance).toFixed(1))} mi</div>
-        <div class="annual-col annual-col-metric">${iconElevation()} ${comma(feet(y.elevation).toFixed(0))} ft</div>
-        <div class="annual-col annual-col-metric">${iconRides()} ${comma(y.count)}</div>
-      </div>
-    `;
-  });
-
-  html += `</div>`;
-
-  document.getElementById("annual-stats-table").innerHTML = html;
 }
 
 /* ========== BIKE STATS ========== */
