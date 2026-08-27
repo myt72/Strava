@@ -32,8 +32,8 @@ function formatSpeed(avg_speed_mph, sport_type = "Ride") {
 
 function trendIndicator(trend) {
   if (trend === 0 || trend == null) return "";
-  if (trend > 0) return `<span class="trend-up">↑ ${(trend * 100).toFixed(0)}%</span>`;
-  return `<span class="trend-down">↓ ${(Math.abs(trend) * 100).toFixed(0)}%</span>`;
+  if (trend > 0) return `<span class="trend-up">? ${(trend * 100).toFixed(0)}%</span>`;
+  return `<span class="trend-down">? ${(Math.abs(trend) * 100).toFixed(0)}%</span>`;
 }
 
 function iconDistance() {
@@ -139,7 +139,8 @@ function renderKpiSummary(data) {
   const totalActivities = data.activities.length;
   const totalDistanceMeters = data.activities.reduce((sum, a) => sum + (a.distance || 0), 0);
   const totalElevationMeters = data.activities.reduce((sum, a) => sum + (a.total_elevation_gain || 0), 0);
-  const activeBikes = Object.keys(data.gearTotals || {}).length;
+
+  const activeBikes = Object.values(data.gearDetails || {}).filter(gear => gear && !gear.retired).length;
 
   kpi.innerHTML = `
     <div class="kpi-card">
@@ -194,7 +195,7 @@ function renderBikeComparison() {
 
   let html = `
     <div class="comparison-header">
-      <h3>🔍 Compare Bikes</h3>
+      <h3>?? Compare Bikes</h3>
       <button class="clear-comparison" onclick="clearBikeComparison()">Clear Comparison</button>
     </div>
     <div class="comparison-table-wrap">
@@ -423,10 +424,11 @@ function renderAnnualStats(data) {
   const storedTypes = JSON.parse(localStorage.getItem(STORAGE_KEYS.selectedTypes) || "null");
 
   const allDiv = document.createElement("div");
+  allDiv.className = "filter-chip";
   allDiv.innerHTML = `
     <label>
       <input type="checkbox" id="chk-all">
-      <strong>ALL</strong>
+      <span>All</span>
     </label>
   `;
   container.appendChild(allDiv);
@@ -436,10 +438,11 @@ function renderAnnualStats(data) {
   types.forEach(type => {
     const id = `chk-${type}`;
     const div = document.createElement("div");
+    div.className = "filter-chip";
     div.innerHTML = `
       <label>
         <input type="checkbox" id="${id}" ${selectedTypes.has(type) ? "checked" : ""}>
-        ${type}
+        <span>${type}</span>
       </label>
     `;
     container.appendChild(div);
@@ -494,29 +497,35 @@ function updateAnnualStatsTable(data) {
   const years = Object.keys(annual).sort((a, b) => b - a);
 
   let html = `
-    <div class="year-card">
-      <div class="year-title">Total</div>
-      <div class="metric-row">
-        <div class="metric">${iconDistance()} ${comma(miles(totalDistance).toFixed(1))} mi</div>
-        <div class="metric">${iconElevation()} ${comma(feet(totalElevation).toFixed(0))} ft</div>
-        <div class="metric">${iconRides()} ${comma(totalCount)} Activities</div>
+    <div class="annual-stats-rows">
+      <div class="annual-stats-row annual-stats-row-header">
+        <div class="annual-col annual-col-year">Year</div>
+        <div class="annual-col annual-col-metric">Distance</div>
+        <div class="annual-col annual-col-metric">Elevation</div>
+        <div class="annual-col annual-col-metric">Activities</div>
       </div>
-    </div>
+
+      <div class="annual-stats-row annual-stats-row-total">
+        <div class="annual-col annual-col-year"><strong>Total</strong></div>
+        <div class="annual-col annual-col-metric">${iconDistance()} ${comma(miles(totalDistance).toFixed(1))} mi</div>
+        <div class="annual-col annual-col-metric">${iconElevation()} ${comma(feet(totalElevation).toFixed(0))} ft</div>
+        <div class="annual-col annual-col-metric">${iconRides()} ${comma(totalCount)}</div>
+      </div>
   `;
 
   years.forEach(year => {
     const y = annual[year];
     html += `
-      <div class="year-card">
-        <div class="year-title">${year}</div>
-        <div class="metric-row">
-          <div class="metric">${iconDistance()} ${comma(miles(y.distance).toFixed(1))} mi</div>
-          <div class="metric">${iconElevation()} ${comma(feet(y.elevation).toFixed(0))} ft</div>
-          <div class="metric">${iconRides()} ${comma(y.count)} Activities</div>
-        </div>
+      <div class="annual-stats-row">
+        <div class="annual-col annual-col-year">${year}</div>
+        <div class="annual-col annual-col-metric">${iconDistance()} ${comma(miles(y.distance).toFixed(1))} mi</div>
+        <div class="annual-col annual-col-metric">${iconElevation()} ${comma(feet(y.elevation).toFixed(0))} ft</div>
+        <div class="annual-col annual-col-metric">${iconRides()} ${comma(y.count)}</div>
       </div>
     `;
   });
+
+  html += `</div>`;
 
   document.getElementById("annual-stats-table").innerHTML = html;
 }
@@ -531,7 +540,7 @@ function renderBikeRows(rows) {
     const isSelected = selectedBikes.has(row.gid);
     const sport_type = "Ride";
     const speedLabel = formatSpeed(total.avg_speed_mph, sport_type);
-    const prLabel = total.pr_count > 0 ? `🏆 ${comma(total.pr_count)} PRs` : "";
+    const prLabel = total.pr_count > 0 ? `?? ${comma(total.pr_count)} PRs` : "";
 
     let card = `
       <div class="card">
@@ -546,7 +555,7 @@ function renderBikeRows(rows) {
             <span>${escapeHtml(row.name)}</span>
           </div>
           <div>
-            <button class="pin-button ${row.isPinned ? "pinned" : ""}" onclick="pinBike('${row.gid}')">${row.isPinned ? "★ Pinned" : "☆ Pin"}</button>
+            <button class="pin-button ${row.isPinned ? "pinned" : ""}" onclick="pinBike('${row.gid}')">${row.isPinned ? "? Pinned" : "? Pin"}</button>
             <input type="checkbox" id="checkbox-${row.gid}" class="bike-checkbox" data-gid="${row.gid}" data-name="${escapeHtml(row.name)}" ${isSelected ? "checked" : ""}>
           </div>
         </div>
@@ -555,7 +564,7 @@ function renderBikeRows(rows) {
           <div class="metric">${iconDistance()} ${comma(miles(total.distance).toFixed(1))} mi</div>
           <div class="metric">${iconElevation()} ${comma(feet(total.elevation).toFixed(0))} ft</div>
           <div class="metric">${iconRides()} ${comma(total.count)} Activities</div>
-          ${speedLabel ? `<div class="metric speed-metric">⚡ ${speedLabel}</div>` : ""}
+          ${speedLabel ? `<div class="metric speed-metric">? ${speedLabel}</div>` : ""}
           ${prLabel ? `<div class="metric">${prLabel}</div>` : ""}
         </div>
     `;
@@ -563,7 +572,7 @@ function renderBikeRows(rows) {
     row.years.forEach(year => {
       const y = row.bikeYearStats[year];
       const yearSpeedLabel = formatSpeed(y.avg_speed_mph, sport_type);
-      const yearPrLabel = y.pr_count > 0 ? `🏆 ${comma(y.pr_count)} PRs` : "";
+      const yearPrLabel = y.pr_count > 0 ? `?? ${comma(y.pr_count)} PRs` : "";
       const weeklyId = `weeks-${row.gid}-${year}`;
 
       const weekNums = Object.keys(y.weeks || {}).map(Number).sort((a, b) => b - a);
@@ -588,13 +597,13 @@ function renderBikeRows(rows) {
         <div class="year-card">
           <div class="year-card-header" onclick="toggleWeeks('${weeklyId}')">
             <div class="year-title">${year}</div>
-            <button class="week-toggle-btn" id="btn-${weeklyId}" aria-label="Toggle weekly breakdown">▶</button>
+            <button class="week-toggle-btn" id="btn-${weeklyId}" aria-label="Toggle weekly breakdown">?</button>
           </div>
           <div class="metric-row">
             <div class="metric">${iconDistance()} ${comma(miles(y.distance).toFixed(1))} mi</div>
             <div class="metric">${iconElevation()} ${comma(feet(y.elevation).toFixed(0))} ft</div>
             <div class="metric">${iconRides()} ${comma(y.count)} Activities</div>
-            ${yearSpeedLabel ? `<div class="metric speed-metric">⚡ ${yearSpeedLabel}</div>` : ""}
+            ${yearSpeedLabel ? `<div class="metric speed-metric">? ${yearSpeedLabel}</div>` : ""}
             ${yearPrLabel ? `<div class="metric">${yearPrLabel}</div>` : ""}
           </div>
           <div class="weeks-container" id="${weeklyId}" style="display:none;">
@@ -625,7 +634,7 @@ function toggleWeeks(id) {
   if (!container) return;
   const isOpen = container.style.display !== "none";
   container.style.display = isOpen ? "none" : "block";
-  if (btn) btn.textContent = isOpen ? "▶" : "▼";
+  if (btn) btn.textContent = isOpen ? "?" : "?";
 }
 
 function renderBikeStats(bikeYearStats, gearTotals, gearDetails) {
