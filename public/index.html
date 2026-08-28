@@ -7,7 +7,6 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-
   <div id="main">
     <div class="header-top">
       <h1>Strava Dashboard</h1>
@@ -21,7 +20,7 @@
 
         <div class="advanced-actions-menu">
           <button id="advanced-menu-trigger" class="menu-trigger" onclick="toggleAdvancedMenu()" title="Advanced Actions">
-            <svg viewBox="0 0 24 24" width="24" height="24">
+            <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
               <circle cx="6" cy="12" r="2" fill="currentColor"/>
               <circle cx="12" cy="12" r="2" fill="currentColor"/>
               <circle cx="18" cy="12" r="2" fill="currentColor"/>
@@ -67,11 +66,10 @@
 
     <div id="kpi-summary" class="kpi-grid"></div>
 
-    <!-- Activity Counts FIRST -->
     <div id="activity-counts" class="card">
       <div class="accent-bar"></div>
       <div class="card-header">
-        <svg class="icon-lg" viewBox="0 0 24 24">
+        <svg class="icon-lg" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
         Activity Counts
@@ -79,11 +77,10 @@
       <div id="activity-counts-content"></div>
     </div>
 
-    <!-- Annual Stats SECOND -->
     <div id="annual-card" class="card">
       <div class="accent-bar"></div>
       <div class="card-header">
-        <svg class="icon-lg" viewBox="0 0 24 24">
+        <svg class="icon-lg" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M4 18V6m6 12V10m6 8V4m6 14V8" stroke="currentColor" stroke-width="2"/>
         </svg>
         Annual Stats
@@ -97,7 +94,17 @@
       <div id="annual-stats-table"></div>
     </div>
 
-    <!-- Bike Comparison Section -->
+    <div id="highlights-card" class="card">
+      <div class="accent-bar"></div>
+      <div class="card-header">
+        <svg class="icon-lg" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9L12 3z" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round"/>
+        </svg>
+        Highlights
+      </div>
+      <div id="highlights-content"></div>
+    </div>
+
     <div id="bike-comparison-section" class="card comparison-panel">
       <div id="comparison-content"></div>
     </div>
@@ -116,23 +123,20 @@
       </div>
     </div>
 
-    <!-- Bike cards -->
     <div id="bike-grid" class="card-grid"></div>
-
   </div>
 
   <script>
     function toggleAdvancedMenu() {
-      const menu = document.getElementById('advanced-menu');
-      menu.classList.toggle('open');
+      const menu = document.getElementById("advanced-menu");
+      menu.classList.toggle("open");
     }
 
-    // Close menu when clicking outside
-    document.addEventListener('click', function(event) {
-      const menu = document.getElementById('advanced-menu');
-      const trigger = document.getElementById('advanced-menu-trigger');
+    document.addEventListener("click", function(event) {
+      const menu = document.getElementById("advanced-menu");
+      const trigger = document.getElementById("advanced-menu-trigger");
       if (menu && trigger && !menu.contains(event.target) && !trigger.contains(event.target)) {
-        menu.classList.remove('open');
+        menu.classList.remove("open");
       }
     });
   </script>
