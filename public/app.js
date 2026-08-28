@@ -57,6 +57,16 @@ function formatYearsBetween(startDate, endDate) {
   return `${years.toFixed(1)} years`;
 }
 
+function formatDayDifference(startDate, endDate) {
+  if (!startDate || !endDate) return "-";
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  start.setHours(0, 0, 0, 0);
+  end.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((end - start) / 86400000);
+  return `${comma(diffDays)} day${diffDays === 1 ? "" : "s"}`;
+}
+
 function getDateKey(dateStr) {
   const d = new Date(dateStr);
   const yyyy = d.getFullYear();
@@ -464,7 +474,7 @@ function renderHighlights(rideInsights) {
       ${card("Most recently ridden", h.mostRecentBike, h.mostRecentBike ? formatDate(h.mostRecentBike.lastRide) : "-")}
       ${card("Biggest mileage week", h.biggestMileageWeekBike, h.biggestMileageWeekBike ? `${comma(miles(h.biggestMileageWeekBike.distance).toFixed(1))} mi` : "-", h.biggestMileageWeekBike ? `Week of ${h.biggestMileageWeekBike.label}` : "")}
       ${card("Biggest climbing week", h.biggestClimbingWeekBike, h.biggestClimbingWeekBike ? `${comma(feet(h.biggestClimbingWeekBike.elevation).toFixed(0))} ft` : "-", h.biggestClimbingWeekBike ? `Week of ${h.biggestClimbingWeekBike.label}` : "")}
-      ${card("Longest-used bike", h.longestUsedBike, h.longestUsedBike ? formatYearsBetween(h.longestUsedBike.firstRide, h.longestUsedBike.lastRide) : "-", h.longestUsedBike ? `${formatDate(h.longestUsedBike.firstRide)} to ${formatDate(h.longestUsedBike.lastRide)}` : "")}
+      ${card("Longest-used bike", h.longestUsedBike, h.longestUsedBike ? formatYearsBetween(h.longestUsedBike.firstRide, h.longestUsedBike.lastRide) : "-", h.longestUsedBike ? `${formatDate(h.longestUsedBike.firstRide)} ? ${formatDate(h.longestUsedBike.lastRide)}` : "")}
     </div>
   `;
 }
@@ -950,6 +960,7 @@ function renderBikeRows(rows, rideInsights) {
             <div class="bike-insight-label">First / last ride</div>
             <div class="bike-insight-value">${iconCalendar()} ${formatDate(insights.firstRide)}</div>
             <div class="bike-insight-sub">${formatDate(insights.lastRide)}</div>
+            <div class="bike-insight-sub">${formatDayDifference(insights.firstRide, insights.lastRide)}</div>
           </div>
         </div>
 
