@@ -88,6 +88,23 @@ function computeMaxStreak(dateKeys) {
   return maxStreak;
 }
 
+function getMondayForIsoWeek(year, isoWeek) {
+  const simple = new Date(year, 0, 1 + (isoWeek - 1) * 7);
+  const day = simple.getDay();
+  const isoMonday = new Date(simple);
+
+  if (day <= 4 && day !== 0) {
+    isoMonday.setDate(simple.getDate() - day + 1);
+  } else if (day === 0) {
+    isoMonday.setDate(simple.getDate() - 6);
+  } else {
+    isoMonday.setDate(simple.getDate() + (8 - day));
+  }
+
+  isoMonday.setHours(0, 0, 0, 0);
+  return isoMonday;
+}
+
 function trendIndicator(trend) {
   if (trend === 0 || trend == null) return "";
   if (trend > 0) return `<span class="trend-up">Up ${(trend * 100).toFixed(0)}%</span>`;
@@ -273,7 +290,6 @@ function deriveRideInsights(data) {
   let totalRideCount = 0;
   let topMileageWeek = null;
   let topClimbingWeek = null;
-  let mostActiveWeek = null;
 
   rides.forEach(a => {
     const gid = a.gear_id;
@@ -331,9 +347,6 @@ function deriveRideInsights(data) {
     }
     if (bike.biggestClimbingWeek && (!topClimbingWeek || bike.biggestClimbingWeek.elevation > topClimbingWeek.elevation)) {
       topClimbingWeek = { ...bike.biggestClimbingWeek, gid };
-    }
-    if (bike.mostActiveWeek && (!mostActiveWeek || bike.mostActiveWeek.count > mostActiveWeek.count)) {
-      mostActiveWeek = { ...bike.mostActiveWeek, gid };
     }
   });
 
@@ -465,13 +478,6 @@ function renderActivityCounts(counts) {
   document.getElementById("activity-counts-content").innerHTML = html;
 }
 
-function toggleAnnualYear(year) {
-  if (annualExpandedYears.has(String(year))) annualExpandedYears.delete(String(year));
-  else annualExpandedYears.add(String(year));
-  saveAnnualExpandedYears();
-  updateAnnualStatsTable(window.__annualStatsData);
-}
-
 function buildAnnualBreakdowns(data) {
   const annual = {};
   let totalDistance = 0;
@@ -576,6 +582,13 @@ function renderAnnualBreakdownItems(items) {
   });
   html += `</div>`;
   return html;
+}
+
+function toggleAnnualYear(year) {
+  if (annualExpandedYears.has(String(year))) annualExpandedYears.delete(String(year));
+  else annualExpandedYears.add(String(year));
+  saveAnnualExpandedYears();
+  updateAnnualStatsTable(window.__annualStatsData);
 }
 
 function updateAnnualStatsTable(data) {
@@ -959,13 +972,21 @@ function renderBikeRows(rows, rideInsights) {
         const weeksOpen = expandedBikeYears.has(yearId);
 
         const weekEntries = Object.entries(y.weeks || {}).map(([key, value]) => {
+          const numericWeek = Number(key);
+          const hasIsoWeek = !Number.isNaN(numericWeek) && numericWeek > 0;
+          const isoMonday = hasIsoWeek ? getMondayForIsoWeek(Number(year), numericWeek) : null;
+
           const weekLabel = value.week_start
             ? formatDate(value.week_start)
-            : (value.label && /^\d{2}\/\d{2}\/\d{4}$/.test(value.label) ? value.label : value.label || key);
+            : isoMonday
+              ? formatShortDate(isoMonday)
+              : (value.label && /^\d{2}\/\d{2}\/\d{4}$/.test(value.label) ? value.label : value.label || key);
 
           const sortDate = value.week_start
             ? new Date(value.week_start).getTime()
-            : new Date(weekLabel).getTime() || Number(key) || 0;
+            : isoMonday
+              ? isoMonday.getTime()
+              : (!Number.isNaN(new Date(weekLabel).getTime()) ? new Date(weekLabel).getTime() : numericWeek || 0);
 
           return {
             ...value,
