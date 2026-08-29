@@ -353,6 +353,8 @@ const STORAGE_KEYS = {
   bikeHistoryExpanded: "strava:bikeHistoryExpanded"
 };
 
+const EXCLUDED_HIGHEST_ELEVATION_ACTIVITY_ID = "1380665549";
+
 let selectedBikes = new Map();
 let allGearData = {};
 let currentBikeRows = [];
@@ -525,10 +527,12 @@ function deriveRideInsights(data) {
     null
   );
 
-  const highestElevationActivity = allActivities.reduce(
-    (best, a) => (!best || (a.total_elevation_gain || 0) > (best.total_elevation_gain || 0) ? a : best),
-    null
-  );
+  const highestElevationActivity = allActivities
+    .filter(a => String(a.id) !== EXCLUDED_HIGHEST_ELEVATION_ACTIVITY_ID)
+    .reduce(
+      (best, a) => (!best || (a.total_elevation_gain || 0) > (best.total_elevation_gain || 0) ? a : best),
+      null
+    );
 
   const longestMovingTimeActivity = allActivities.reduce(
     (best, a) => (!best || (a.moving_time || 0) > (best.moving_time || 0) ? a : best),
