@@ -19,6 +19,125 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
+function isValidHttpUrl(value) {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function extractStravaActivityId(activityUrl) {
+  if (!activityUrl) return null;
+  const match = String(activityUrl).match(/strava\.com\/activities\/(\d+)/i);
+  return match ? match[1] : null;
+}
+
+function findActivityById(activities, activityId) {
+  if (!activityId) return null;
+  return (activities || []).find(activity => String(activity.id) === String(activityId)) || null;
+}
+
+function getGearName(gearDetails, gearId) {
+  if (!gearId) return "-";
+  return gearDetails?.[gearId]?.name || gearId;
+}
+
+function formatActivityTitle(activity) {
+  if (!activity) return "-";
+  return activity.name || activity.sport_type || "Activity";
+}
+
+function formatActivitySecondaryLabel(activity, gearDetails) {
+  if (!activity) return "";
+  const date = formatDate(activity.start_date);
+  const gearName = getGearName(gearDetails, activity.gear_id);
+  return `${date} • ${gearName}`;
+}
+
+function renderActivityName(activity, gearDetails) {
+  if (!activity) return "-";
+
+  const title = escapeHtml(formatActivityTitle(activity));
+  const secondary = escapeHtml(formatActivitySecondaryLabel(activity, gearDetails));
+
+  const titleHtml = isValidHttpUrl(activity.url)
+    ? `<a class="highlight-activity-link" href="${activity.url}" target="_blank" rel="noopener noreferrer">${title}</a>`
+    : title;
+
+  return `
+    <div class="highlight-bike">${titleHtml}</div>
+    ${secondary ? `<div class="highlight-subtext">${secondary}</div>` : ""}
+  `;
+}
+
+async function loadFeaturedActivities() {
+  try {
+    const res = await fetch("featured-activities.json", { cache: "no-store" });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch (err) {
+    console.warn("Unable to load featured activities config", err);
+    return [];
+  }
+}
+
+function renderFeaturedActivities(items, data) {
+  const container = document.getElementById("featured-activities-content");
+  if (!container) return;
+
+  if (!items.length) {
+    container.innerHTML = `<div class="empty-state">No featured activities configured yet.</div>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="featured-activities-grid">
+      ${items.map(item => {
+        const title = escapeHtml(item.title || "Untitled Activity");
+        const caption = item.caption ? `<div class="featured-activity-caption">${escapeHtml(item.caption)}</div>` : "";
+        const activityUrl = item.activityUrl || "";
+        const activityId = extractStravaActivityId(activityUrl);
+        const activity = findActivityById(data.activities, activityId);
+
+        let metricsHtml = `<div class="featured-activity-link-disabled">Activity not found in dashboard data</div>`;
+
+        if (activity) {
+          const bikeName = getGearName(data.gearDetails, activity.gear_id);
+          metricsHtml = `
+            <div class="featured-activity-metrics">
+              <div class="featured-activity-metric">${iconDistance()} ${comma(miles(activity.distance || 0).toFixed(1))} mi</div>
+              <div class="featured-activity-metric">${iconElevation()} ${comma(feet(activity.total_elevation_gain || 0).toFixed(0))} ft</div>
+              <div class="featured-activity-metric">${iconTime()} ${formatDuration(activity.moving_time || 0)}</div>
+              <div class="featured-activity-metric">${iconCalendar()} ${formatDate(activity.start_date)}</div>
+              <div class="featured-activity-metric">${escapeHtml(activity.sport_type || "-")}</div>
+              <div class="featured-activity-metric">${iconRides()} ${escapeHtml(bikeName)}</div>
+            </div>
+          `;
+        }
+
+        const activityLink = isValidHttpUrl(activityUrl)
+          ? `<a class="featured-activity-link" href="${activityUrl}" target="_blank" rel="noopener noreferrer">View on Strava</a>`
+          : `<div class="featured-activity-link-disabled">No activity link</div>`;
+
+        return `
+          <article class="featured-activity-card">
+            <div class="featured-activity-body">
+              <div class="featured-activity-title">${title}</div>
+              ${caption}
+              ${metricsHtml}
+              ${activityLink}
+            </div>
+          </article>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
 function formatSpeed(avgSpeedMph, sportType = "Ride") {
   if (!avgSpeedMph || avgSpeedMph <= 0) return null;
   if (sportType === "Run" || sportType === "Walk") {
@@ -295,6 +414,8 @@ function applyThemePreference() {
 
 function deriveRideInsights(data) {
   const rides = (data.activities || []).filter(a => a && a.gear_id && a.sport_type === "Ride");
+  const allActivities = (data.activities || []).filter(Boolean);
+  const rideActivities = allActivities.filter(a => a.sport_type === "Ride");
   const perBike = {};
   let totalRideDistance = 0;
   let totalRideCount = 0;
@@ -399,6 +520,41 @@ function deriveRideInsights(data) {
     return best;
   }, null);
 
+  const longestActivity = allActivities.reduce(
+    (best, a) => (!best || (a.distance || 0) > (best.distance || 0) ? a : best),
+    null
+  );
+
+  const highestElevationActivity = allActivities.reduce(
+    (best, a) => (!best || (a.total_elevation_gain || 0) > (best.total_elevation_gain || 0) ? a : best),
+    null
+  );
+
+  const longestMovingTimeActivity = allActivities.reduce(
+    (best, a) => (!best || (a.moving_time || 0) > (best.moving_time || 0) ? a : best),
+    null
+  );
+
+  const fastestRide = rideActivities
+    .filter(a => (a.distance || 0) > 0 && (a.moving_time || 0) > 0)
+    .reduce((best, a) => {
+      const avgSpeedMph = miles(a.distance) / (a.moving_time / 3600);
+      if (!best || avgSpeedMph > best.avg_speed_mph) {
+        return { ...a, avg_speed_mph: avgSpeedMph };
+      }
+      return best;
+    }, null);
+
+  const steepestRide = rideActivities
+    .filter(a => (a.distance || 0) > 0 && (a.total_elevation_gain || 0) > 0)
+    .reduce((best, a) => {
+      const elevationPerMile = feet(a.total_elevation_gain) / miles(a.distance);
+      if (!best || elevationPerMile > best.elevation_per_mile) {
+        return { ...a, elevation_per_mile: elevationPerMile };
+      }
+      return best;
+    }, null);
+
   return {
     perBike,
     highlights: {
@@ -411,7 +567,12 @@ function deriveRideInsights(data) {
       mostRecentBike: mostRecentBike ? { ...bikeById[mostRecentBike.gid], ...mostRecentBike } : null,
       biggestMileageWeekBike: topMileageWeek ? { ...bikeById[topMileageWeek.gid], ...topMileageWeek } : null,
       biggestClimbingWeekBike: topClimbingWeek ? { ...bikeById[topClimbingWeek.gid], ...topClimbingWeek } : null,
-      longestUsedBike: longestUsedBike ? { ...bikeById[longestUsedBike.gid], ...longestUsedBike } : null
+      longestUsedBike: longestUsedBike ? { ...bikeById[longestUsedBike.gid], ...longestUsedBike } : null,
+      longestActivity,
+      highestElevationActivity,
+      longestMovingTimeActivity,
+      fastestRide,
+      steepestRide
     }
   };
 }
@@ -448,13 +609,13 @@ function renderKpiSummary(data) {
   `;
 }
 
-function renderHighlights(rideInsights) {
+function renderHighlights(rideInsights, gearDetails = {}) {
   const container = document.getElementById("highlights-content");
   if (!container) return;
 
   const h = rideInsights.highlights;
 
-  const card = (label, bike, value, subtext = "") => `
+  const bikeCard = (label, bike, value, subtext = "") => `
     <div class="highlight-card">
       <div class="highlight-label">${label}</div>
       <div class="highlight-bike">${bike ? escapeHtml(bike.name) : "-"}</div>
@@ -463,18 +624,33 @@ function renderHighlights(rideInsights) {
     </div>
   `;
 
+  const activityCard = (label, activity, value, extraSubtext = "") => `
+    <div class="highlight-card">
+      <div class="highlight-label">${label}</div>
+      ${activity ? renderActivityName(activity, gearDetails) : `<div class="highlight-bike">-</div>`}
+      <div class="highlight-value">${value || "-"}</div>
+      ${extraSubtext ? `<div class="highlight-subtext">${escapeHtml(extraSubtext)}</div>` : ""}
+    </div>
+  `;
+
   container.innerHTML = `
     <div class="highlights-grid">
-      ${card("Most-used bike by miles", h.mostUsedByMiles, h.mostUsedByMiles ? `${comma(miles(h.mostUsedByMiles.distance).toFixed(1))} mi` : "-")}
-      ${card("Most-used bike by ride count", h.mostUsedByCount, h.mostUsedByCount ? `${comma(h.mostUsedByCount.count)} rides` : "-")}
-      ${card("Fastest bike", h.fastestBike, h.fastestBike && h.fastestBike.avg_speed_mph ? `${h.fastestBike.avg_speed_mph.toFixed(1)} mph` : "-")}
-      ${card("Highest elevation per ride", h.climbingBike, h.climbingBike ? `${comma(feet(h.climbingBike.avg_elevation_per_ride).toFixed(0))} ft/ride` : "-")}
-      ${card("Longest average ride", h.longestAverageRideBike, h.longestAverageRideBike ? `${comma(miles(h.longestAverageRideBike.avg_distance_per_ride).toFixed(1))} mi/ride` : "-")}
-      ${card("Most total activity time", h.mostTotalTimeBike, h.mostTotalTimeBike ? formatDuration(h.mostTotalTimeBike.moving_time) : "-")}
-      ${card("Most recently ridden", h.mostRecentBike, h.mostRecentBike ? formatDate(h.mostRecentBike.lastRide) : "-")}
-      ${card("Biggest mileage week", h.biggestMileageWeekBike, h.biggestMileageWeekBike ? `${comma(miles(h.biggestMileageWeekBike.distance).toFixed(1))} mi` : "-", h.biggestMileageWeekBike ? `Week of ${h.biggestMileageWeekBike.label}` : "")}
-      ${card("Biggest climbing week", h.biggestClimbingWeekBike, h.biggestClimbingWeekBike ? `${comma(feet(h.biggestClimbingWeekBike.elevation).toFixed(0))} ft` : "-", h.biggestClimbingWeekBike ? `Week of ${h.biggestClimbingWeekBike.label}` : "")}
-      ${card("Longest-used bike", h.longestUsedBike, h.longestUsedBike ? formatYearsBetween(h.longestUsedBike.firstRide, h.longestUsedBike.lastRide) : "-", h.longestUsedBike ? `${formatDate(h.longestUsedBike.firstRide)} ? ${formatDate(h.longestUsedBike.lastRide)}` : "")}
+      ${bikeCard("Most-used bike by miles", h.mostUsedByMiles, h.mostUsedByMiles ? `${comma(miles(h.mostUsedByMiles.distance).toFixed(1))} mi` : "-")}
+      ${bikeCard("Most-used bike by ride count", h.mostUsedByCount, h.mostUsedByCount ? `${comma(h.mostUsedByCount.count)} rides` : "-")}
+      ${bikeCard("Fastest bike", h.fastestBike, h.fastestBike && h.fastestBike.avg_speed_mph ? `${h.fastestBike.avg_speed_mph.toFixed(1)} mph` : "-")}
+      ${bikeCard("Highest elevation per ride", h.climbingBike, h.climbingBike ? `${comma(feet(h.climbingBike.avg_elevation_per_ride).toFixed(0))} ft/ride` : "-")}
+      ${bikeCard("Longest average ride", h.longestAverageRideBike, h.longestAverageRideBike ? `${comma(miles(h.longestAverageRideBike.avg_distance_per_ride).toFixed(1))} mi/ride` : "-")}
+      ${bikeCard("Most total activity time", h.mostTotalTimeBike, h.mostTotalTimeBike ? formatDuration(h.mostTotalTimeBike.moving_time) : "-")}
+      ${bikeCard("Most recently ridden", h.mostRecentBike, h.mostRecentBike ? formatDate(h.mostRecentBike.lastRide) : "-")}
+      ${bikeCard("Biggest mileage week", h.biggestMileageWeekBike, h.biggestMileageWeekBike ? `${comma(miles(h.biggestMileageWeekBike.distance).toFixed(1))} mi` : "-", h.biggestMileageWeekBike ? `Week of ${h.biggestMileageWeekBike.label}` : "")}
+      ${bikeCard("Biggest climbing week", h.biggestClimbingWeekBike, h.biggestClimbingWeekBike ? `${comma(feet(h.biggestClimbingWeekBike.elevation).toFixed(0))} ft` : "-", h.biggestClimbingWeekBike ? `Week of ${h.biggestClimbingWeekBike.label}` : "")}
+      ${bikeCard("Longest-used bike", h.longestUsedBike, h.longestUsedBike ? formatYearsBetween(h.longestUsedBike.firstRide, h.longestUsedBike.lastRide) : "-", h.longestUsedBike ? `${formatDate(h.longestUsedBike.firstRide)} to ${formatDate(h.longestUsedBike.lastRide)}` : "")}
+
+      ${activityCard("Longest single activity", h.longestActivity, h.longestActivity ? `${comma(miles(h.longestActivity.distance || 0).toFixed(1))} mi` : "-")}
+      ${activityCard("Most elevation in a single activity", h.highestElevationActivity, h.highestElevationActivity ? `${comma(feet(h.highestElevationActivity.total_elevation_gain || 0).toFixed(0))} ft` : "-")}
+      ${activityCard("Longest activity time", h.longestMovingTimeActivity, h.longestMovingTimeActivity ? formatDuration(h.longestMovingTimeActivity.moving_time || 0) : "-")}
+      ${activityCard("Fastest ride by avg speed", h.fastestRide, h.fastestRide ? `${h.fastestRide.avg_speed_mph.toFixed(1)} mph` : "-")}
+      ${activityCard("Most elevation per mile", h.steepestRide, h.steepestRide ? `${comma((h.steepestRide.elevation_per_mile || 0).toFixed(0))} ft/mi` : "-")}
     </div>
   `;
 }
@@ -1090,13 +1266,15 @@ function renderBikeStats(bikeYearStats, gearTotals, gearDetails, rideInsights) {
   updateComparisonDisplay();
 }
 
-function renderAll(data) {
+async function renderAll(data) {
   const rideInsights = deriveRideInsights(data);
   renderKpiSummary(data);
   renderActivityCounts(data.activityCounts || {});
   renderAnnualStats(data);
-  renderHighlights(rideInsights);
+  renderHighlights(rideInsights, data.gearDetails || {});
   renderBikeStats(data.bikeYearStats || {}, data.gearTotals || {}, data.gearDetails || {}, rideInsights);
+  const featuredActivities = await loadFeaturedActivities();
+  renderFeaturedActivities(featuredActivities, data);
 }
 
 window.onload = async () => {
@@ -1119,7 +1297,7 @@ window.onload = async () => {
   }
 
   statusDiv.innerHTML = data.message;
-  renderAll(data);
+  await renderAll(data);
 };
 
 async function refreshData() {
@@ -1139,7 +1317,7 @@ async function refreshData() {
   }
 
   statusDiv.innerHTML = data.message;
-  renderAll(data);
+  await renderAll(data);
 }
 
 async function resumePull() {
@@ -1160,7 +1338,7 @@ async function resumePull() {
     }
 
     statusDiv.innerHTML = data.message || "Resume pull complete.";
-    renderAll(data);
+    await renderAll(data);
   } catch (err) {
     hideSpinner();
     statusDiv.innerHTML = "Resume pull failed.";
@@ -1185,5 +1363,5 @@ async function fullPull() {
   }
 
   statusDiv.innerHTML = data.message;
-  renderAll(data);
+  await renderAll(data);
 }
