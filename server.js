@@ -169,6 +169,8 @@ async function fetchAllActivitiesOnce() {
     all = all.concat(
       data.map(a => ({
         id: a.id,
+        name: a.name,
+        url: `https://www.strava.com/activities/${a.id}`,
         sport_type: a.sport_type || a.type,
         distance: a.distance,
         moving_time: a.moving_time,
@@ -201,6 +203,8 @@ async function fetchNewActivitiesSince(lastDate) {
     if (ts > lastTs) {
       newActs.push({
         id: a.id,
+        name: a.name,
+        url: `https://www.strava.com/activities/${a.id}`,
         sport_type: a.sport_type || a.type,
         distance: a.distance,
         moving_time: a.moving_time,
@@ -241,6 +245,8 @@ async function fetchActivitiesBefore(beforeDate) {
         // This activity is older than our oldest cached one
         all.push({
           id: a.id,
+          name: a.name,
+          url: `https://www.strava.com/activities/${a.id}`,
           sport_type: a.sport_type || a.type,
           distance: a.distance,
           moving_time: a.moving_time,
@@ -628,7 +634,7 @@ app.get("/api/analytics", async (req, res) => {
     });
   }
 
-  /* If no cache and refresh requested → full pull */
+  /* If no cache and refresh requested ? full pull */
   if (!cache) {
     const allActivities = await fetchAllActivitiesOnce();
 
