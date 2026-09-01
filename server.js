@@ -16,7 +16,29 @@ const CACHE_FILE = "./cache.json";
 /* Rate limit tracking */
 let rateLimitRemaining = 600;
 let rateLimitLimit = 600;
+let rateLimitShortRemaining = 600;
+let rateLimitShortLimit = 600;
 let requestCount = 0;
+
+/* Background PR backfill job state */
+let prBackfillJob = {
+  running: false,
+  stopRequested: false,
+  startedAt: null,
+  lastRunAt: null,
+  nextRetryAt: null,
+  mode: "idle",
+  message: "Idle",
+  totalEligible: 0,
+  remaining: 0,
+  nextIndex: 0,
+  fetchedThisRun: 0,
+  processed: 0,
+  completed: false,
+  batchSize: 25,
+  reserve: 25,
+  idlePasses: 0
+};
 
 /* ----------------- CACHE BUSTING MIDDLEWARE ----------------- */
 app.use((req, res, next) => {
@@ -46,22 +68,98 @@ function saveCache(data) {
   fs.renameSync(tmp, CACHE_FILE);
 }
 
+function ensureCacheShape(cache) {
+  const base = cache || {};
+  if (!Array.isArray(base.activities)) base.activities = [];
+  if (!base.segmentData || typeof base.segmentData !== "object") base.segmentData = {};
+  if (!base.activityCounts || typeof base.activityCounts !== "object") base.activityCounts = {};
+  if (!base.gearTotals || typeof base.gearTotals !== "object") base.gearTotals = {};
+  if (!base.gearDetails || typeof base.gearDetails !== "object") base.gearDetails = {};
+  if (!base.annualStats || typeof base.annualStats !== "object") base.annualStats = {};
+  if (!base.bikeYearStats || typeof base.bikeYearStats !== "object") base.bikeYearStats = {};
+  if (!base.segmentBackfill || typeof base.segmentBackfill !== "object") {
+    base.segmentBackfill = {
+      enabled: false,
+      nextIndex: 0,
+      completed: false,
+      lastRunAt: null,
+      totalEligible: 0,
+      fetchedThisRun: 0,
+      remaining: 0
+    };
+  }
+  return base;
+}
+
+function setSegmentBackfillMeta(cache, meta = {}) {
+  const shaped = ensureCacheShape(cache);
+  shaped.segmentBackfill = {
+    enabled: meta.enabled ?? true,
+    nextIndex: meta.nextIndex ?? 0,
+    completed: meta.completed ?? false,
+    lastRunAt: meta.lastRunAt ?? new Date().toISOString(),
+    totalEligible: meta.totalEligible ?? 0,
+    fetchedThisRun: meta.fetchedThisRun ?? 0,
+    remaining: meta.remaining ?? 0
+  };
+  return shaped;
+}
+
 /* Update rate limit from response headers */
 function updateRateLimit(res) {
   const limit = res.headers.get("x-ratelimit-limit");
   const usage = res.headers.get("x-ratelimit-usage");
-  
+
   if (limit && usage) {
-    const [used, max] = usage.split(",").map(Number);
-    rateLimitRemaining = max - used;
-    rateLimitLimit = max;
-    console.log(`[Rate Limit] ${rateLimitRemaining}/${max} remaining`);
+    const [shortLimit, longLimit] = limit.split(",").map(Number);
+    const [shortUsed, longUsed] = usage.split(",").map(Number);
+
+    if (!Number.isNaN(shortLimit) && !Number.isNaN(shortUsed)) {
+      rateLimitShortLimit = shortLimit;
+      rateLimitShortRemaining = shortLimit - shortUsed;
+    }
+
+    if (!Number.isNaN(longLimit) && !Number.isNaN(longUsed)) {
+      rateLimitLimit = longLimit;
+      rateLimitRemaining = longLimit - longUsed;
+    }
+
+    console.log(`[Rate Limit] ${rateLimitShortRemaining}/${rateLimitShortLimit} short, ${rateLimitRemaining}/${rateLimitLimit} daily remaining`);
   }
 }
 
-/* Sleep utility for rate limiting */
+/* Sleep utility */
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function getNextQuarterHourUtc(now = new Date()) {
+  const d = new Date(now);
+  d.setUTCSeconds(0, 0);
+  const minutes = d.getUTCMinutes();
+  const nextQuarter = Math.ceil((minutes + 1) / 15) * 15;
+  if (nextQuarter >= 60) {
+    d.setUTCHours(d.getUTCHours() + 1);
+    d.setUTCMinutes(0);
+  } else {
+    d.setUTCMinutes(nextQuarter);
+  }
+  return d;
+}
+
+function getNextDailyResetUtc(now = new Date()) {
+  const d = new Date(now);
+  d.setUTCDate(d.getUTCDate() + 1);
+  d.setUTCHours(0, 0, 5, 0);
+  return d;
+}
+
+function getNextRetryTime() {
+  const now = new Date();
+  if (rateLimitRemaining <= 5) {
+    return getNextDailyResetUtc(now);
+  }
+  return getNextQuarterHourUtc(now);
 }
 
 /* AUTH */
@@ -121,15 +219,14 @@ async function refreshToken() {
   refresh_token = data.refresh_token;
 }
 
-/* FETCH WRAPPER with rate limit checking */
+/* FETCH WRAPPER */
 
 async function stravaFetch(url) {
   requestCount++;
-  
-  // If we're running low on rate limit, wait
-  if (rateLimitRemaining < 50) {
-    console.warn(`[Rate Limit] Only ${rateLimitRemaining} calls remaining. Pausing...`);
-    await sleep(2000);
+
+  if (rateLimitShortRemaining < 10 || rateLimitRemaining < 25) {
+    console.warn(`[Rate Limit] Low headroom before request. short=${rateLimitShortRemaining}, daily=${rateLimitRemaining}`);
+    await sleep(1000);
   }
 
   let res = await fetch(url, {
@@ -155,6 +252,20 @@ async function stravaFetch(url) {
 
 /* ACTIVITY FETCH */
 
+function mapActivity(a) {
+  return {
+    id: a.id,
+    name: a.name,
+    url: `https://www.strava.com/activities/${a.id}`,
+    sport_type: a.sport_type || a.type,
+    distance: a.distance,
+    moving_time: a.moving_time,
+    total_elevation_gain: a.total_elevation_gain,
+    start_date: a.start_date,
+    gear_id: a.gear_id
+  };
+}
+
 async function fetchAllActivitiesOnce() {
   let page = 1;
   let all = [];
@@ -166,19 +277,7 @@ async function fetchAllActivitiesOnce() {
     const data = await res.json();
     if (!Array.isArray(data) || data.length === 0) break;
 
-    all = all.concat(
-      data.map(a => ({
-        id: a.id,
-        name: a.name,
-        url: `https://www.strava.com/activities/${a.id}`,
-        sport_type: a.sport_type || a.type,
-        distance: a.distance,
-        moving_time: a.moving_time,
-        total_elevation_gain: a.total_elevation_gain,
-        start_date: a.start_date,
-        gear_id: a.gear_id
-      }))
-    );
+    all = all.concat(data.map(mapActivity));
     page++;
   }
 
@@ -200,27 +299,12 @@ async function fetchNewActivitiesSince(lastDate) {
 
   for (const a of data) {
     const ts = new Date(a.start_date).getTime();
-    if (ts > lastTs) {
-      newActs.push({
-        id: a.id,
-        name: a.name,
-        url: `https://www.strava.com/activities/${a.id}`,
-        sport_type: a.sport_type || a.type,
-        distance: a.distance,
-        moving_time: a.moving_time,
-        total_elevation_gain: a.total_elevation_gain,
-        start_date: a.start_date,
-        gear_id: a.gear_id
-      });
-    } else {
-      break;
-    }
+    if (ts > lastTs) newActs.push(mapActivity(a));
+    else break;
   }
 
   return newActs;
 }
-
-/* RESUME: fetch activities older than the oldest cached activity */
 
 async function fetchActivitiesBefore(beforeDate) {
   if (!beforeDate) return [];
@@ -242,31 +326,17 @@ async function fetchActivitiesBefore(beforeDate) {
     for (const a of data) {
       const ts = new Date(a.start_date).getTime();
       if (ts < beforeTs) {
-        // This activity is older than our oldest cached one
-        all.push({
-          id: a.id,
-          name: a.name,
-          url: `https://www.strava.com/activities/${a.id}`,
-          sport_type: a.sport_type || a.type,
-          distance: a.distance,
-          moving_time: a.moving_time,
-          total_elevation_gain: a.total_elevation_gain,
-          start_date: a.start_date,
-          gear_id: a.gear_id
-        });
+        all.push(mapActivity(a));
         foundBefore = true;
       }
     }
 
-    // If we found activities before our date, keep going
     if (foundBefore && data[data.length - 1]) {
       const lastTs = new Date(data[data.length - 1].start_date).getTime();
       if (lastTs >= beforeTs) {
-        // Last activity on this page is still after our before date, continue
         page++;
         continue;
       } else {
-        // Last activity is before our date, we've found the gap
         break;
       }
     }
@@ -278,7 +348,7 @@ async function fetchActivitiesBefore(beforeDate) {
   return all;
 }
 
-/* GEAR FETCH - batched to avoid rate limiting */
+/* GEAR FETCH */
 
 async function fetchMissingGearDetails(existingGearDetails, gearTotals) {
   const knownIds = new Set(Object.keys(existingGearDetails || {}));
@@ -290,9 +360,8 @@ async function fetchMissingGearDetails(existingGearDetails, gearTotals) {
   console.log(`[Gear Fetch] Fetching ${missingIds.length} gear details...`);
 
   const gearDetails = { ...(existingGearDetails || {}) };
-  
-  // Batch requests: do 3 at a time to avoid rate limit spikes
   const BATCH_SIZE = 3;
+
   for (let i = 0; i < missingIds.length; i += BATCH_SIZE) {
     const batch = missingIds.slice(i, i + BATCH_SIZE);
     const promises = batch.map(async gid => {
@@ -305,8 +374,7 @@ async function fetchMissingGearDetails(existingGearDetails, gearTotals) {
     for (const { gid, data } of results) {
       gearDetails[gid] = data;
     }
-    
-    // Small delay between batches
+
     if (i + BATCH_SIZE < missingIds.length) {
       await sleep(500);
     }
@@ -315,7 +383,7 @@ async function fetchMissingGearDetails(existingGearDetails, gearTotals) {
   return gearDetails;
 }
 
-/* SEGMENT FETCH - OPTIONAL and efficient */
+/* SEGMENT FETCH */
 
 async function fetchSegmentEffortsForActivities(activities, existingSegmentData, fetchSegments = false) {
   if (!fetchSegments) {
@@ -324,34 +392,32 @@ async function fetchSegmentEffortsForActivities(activities, existingSegmentData,
   }
 
   const existing = existingSegmentData || {};
-  const toFetch = activities.filter(a => !(a.id in existing));
+  const toFetch = activities.filter(a => a.sport_type === "Ride" && !(a.id in existing));
 
   if (toFetch.length === 0) {
-    console.log("[Segment Fetch] No new segments to fetch");
+    console.log("[Segment Fetch] No new ride segments to fetch");
     return existing;
   }
 
-  console.warn(`[Segment Fetch] WARNING: About to fetch ${toFetch.length} activities for segment data. This uses many API calls!`);
-  
-  // Only fetch if we have rate limit headroom
-  if (rateLimitRemaining < toFetch.length + 50) {
-    console.error(`[Segment Fetch] Insufficient rate limit (${rateLimitRemaining} remaining). Skipping.`);
+  console.warn(`[Segment Fetch] About to fetch ${toFetch.length} ride activities for segment data.`);
+
+  if (rateLimitShortRemaining < toFetch.length + 10 || rateLimitRemaining < toFetch.length + 25) {
+    console.error(`[Segment Fetch] Insufficient rate limit. short=${rateLimitShortRemaining}, daily=${rateLimitRemaining}. Skipping.`);
     return existing;
   }
 
   const result = { ...existing };
   let fetched = 0;
 
-  // Fetch sequentially with delays to respect rate limits
   for (const a of toFetch) {
-    if (rateLimitRemaining < 30) {
+    if (rateLimitShortRemaining < 5 || rateLimitRemaining < 15) {
       console.warn(`[Segment Fetch] Rate limit running low. Fetched ${fetched}/${toFetch.length} segments.`);
       break;
     }
 
     try {
       const res = await stravaFetch(`https://www.strava.com/api/v3/activities/${a.id}`);
-      
+
       if (res.status === 429) {
         console.warn("[Segment Fetch] Hit 429. Stopping segment fetch.");
         break;
@@ -365,12 +431,12 @@ async function fetchSegmentEffortsForActivities(activities, existingSegmentData,
             pr_rank: e.pr_rank || null
           }))
         : [];
+
       result[a.id] = efforts;
       fetched++;
 
-      // Respect rate limits with delay
-      if (fetched % 10 === 0) {
-        await sleep(1000);
+      if (fetched % 5 === 0) {
+        await sleep(750);
       }
     } catch (err) {
       console.warn(`[Segment Fetch] Failed for activity ${a.id}:`, err.message);
@@ -380,6 +446,128 @@ async function fetchSegmentEffortsForActivities(activities, existingSegmentData,
 
   console.log(`[Segment Fetch] Completed: ${fetched}/${toFetch.length} activities`);
   return result;
+}
+
+/* RESUMABLE BACKFILL */
+
+async function backfillSegmentEffortsResumable(cache, options = {}) {
+  const workingCache = ensureCacheShape(cache);
+  const rides = (workingCache.activities || []).filter(a => a && a.sport_type === "Ride");
+
+  const sortedRides = [...rides].sort(
+    (a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
+  );
+
+  const batchSize = Math.max(1, Number(options.batchSize || 25));
+  const reserve = Math.max(5, Number(options.reserve || 25));
+  const startIndex = Number.isInteger(workingCache.segmentBackfill.nextIndex)
+    ? workingCache.segmentBackfill.nextIndex
+    : 0;
+
+  let currentIndex = startIndex;
+  let fetchedThisRun = 0;
+  let processedThisRun = 0;
+  let stoppedForRateLimit = false;
+
+  console.log(`[Segment Backfill] Starting at index ${startIndex} of ${sortedRides.length}. Batch size ${batchSize}. Reserve ${reserve}.`);
+
+  while (currentIndex < sortedRides.length && fetchedThisRun < batchSize) {
+    if (prBackfillJob.stopRequested) {
+      console.warn("[Segment Backfill] Stop requested.");
+      break;
+    }
+
+    const activity = sortedRides[currentIndex];
+    currentIndex++;
+
+    if (activity.id in workingCache.segmentData) {
+      processedThisRun++;
+      continue;
+    }
+
+    if (rateLimitShortRemaining <= reserve || rateLimitRemaining <= reserve) {
+      stoppedForRateLimit = true;
+      currentIndex--;
+      console.warn(`[Segment Backfill] Stopping for rate limit safety at short=${rateLimitShortRemaining}, daily=${rateLimitRemaining}.`);
+      break;
+    }
+
+    try {
+      const res = await stravaFetch(`https://www.strava.com/api/v3/activities/${activity.id}`);
+
+      if (res.status === 429) {
+        stoppedForRateLimit = true;
+        currentIndex--;
+        console.warn("[Segment Backfill] Hit 429. Saving progress and stopping.");
+        break;
+      }
+
+      const detail = await res.json();
+      const efforts = Array.isArray(detail.segment_efforts)
+        ? detail.segment_efforts.map(e => ({
+            segment_id: e.segment && e.segment.id,
+            segment_name: e.segment && e.segment.name,
+            pr_rank: e.pr_rank || null
+          }))
+        : [];
+
+      workingCache.segmentData[activity.id] = efforts;
+      fetchedThisRun++;
+      processedThisRun++;
+
+      if (fetchedThisRun % 5 === 0) {
+        saveCache(workingCache);
+        await sleep(750);
+      }
+    } catch (err) {
+      console.warn(`[Segment Backfill] Failed for activity ${activity.id}:`, err.message);
+      workingCache.segmentData[activity.id] = [];
+      fetchedThisRun++;
+      processedThisRun++;
+    }
+  }
+
+  const remaining = sortedRides.filter(a => !(a.id in workingCache.segmentData)).length;
+  const completed = remaining === 0;
+
+  setSegmentBackfillMeta(workingCache, {
+    enabled: true,
+    nextIndex: completed ? 0 : currentIndex,
+    completed,
+    lastRunAt: new Date().toISOString(),
+    totalEligible: sortedRides.length,
+    fetchedThisRun,
+    remaining
+  });
+
+  const { activityCounts, gearTotals, annualStats, bikeYearStats } = computeAnalytics(
+    workingCache.activities,
+    workingCache.segmentData
+  );
+
+  const gearDetails = await fetchMissingGearDetails(workingCache.gearDetails, gearTotals);
+
+  workingCache.activityCounts = activityCounts;
+  workingCache.gearTotals = gearTotals;
+  workingCache.gearDetails = gearDetails;
+  workingCache.annualStats = annualStats;
+  workingCache.bikeYearStats = bikeYearStats;
+
+  saveCache(workingCache);
+
+  return {
+    cache: workingCache,
+    meta: {
+      fetchedThisRun,
+      processedThisRun,
+      stoppedForRateLimit,
+      completed,
+      nextIndex: workingCache.segmentBackfill.nextIndex,
+      remaining,
+      totalEligible: sortedRides.length,
+      lastRunAt: workingCache.segmentBackfill.lastRunAt
+    }
+  };
 }
 
 /* ISO WEEK HELPER */
@@ -444,7 +632,6 @@ function computeAnalytics(allActivities, segmentData) {
       bikeYearStats[a.gear_id][year].moving_time += a.moving_time || 0;
       bikeYearStats[a.gear_id][year].pr_count += prCount;
 
-      // Weekly breakdown
       const isoWeek = getISOWeek(a.start_date);
       const wk = String(isoWeek.week);
       if (!bikeYearStats[a.gear_id][year].weeks[wk]) {
@@ -457,7 +644,6 @@ function computeAnalytics(allActivities, segmentData) {
     }
   }
 
-  // Calculate avg speed/pace and week trends
   for (const gid of Object.keys(gearTotals)) {
     const gt = gearTotals[gid];
     if (gt.moving_time > 0 && gt.distance > 0) {
@@ -478,18 +664,13 @@ function computeAnalytics(allActivities, segmentData) {
         ys.avg_pace_min_per_mi = (ys.moving_time / 60) / distMiles;
       }
 
-      // Compute week trends
       const weekNums = Object.keys(ys.weeks).map(Number).sort((a, b) => a - b);
       for (let i = 0; i < weekNums.length; i++) {
         const wk = String(weekNums[i]);
         const prevWk = i > 0 ? String(weekNums[i - 1]) : null;
-        if (prevWk) {
-          const curr = ys.weeks[wk].distance;
-          const prev = ys.weeks[prevWk].distance;
-          ys.weeks[wk].trend = prev > 0 ? (curr - prev) / prev : 0;
-        } else {
-          ys.weeks[wk].trend = 0;
-        }
+        ys.weeks[wk].trend = prevWk && ys.weeks[prevWk].distance > 0
+          ? (ys.weeks[wk].distance - ys.weeks[prevWk].distance) / ys.weeks[prevWk].distance
+          : 0;
       }
     }
   }
@@ -497,19 +678,134 @@ function computeAnalytics(allActivities, segmentData) {
   return { activityCounts, gearTotals, annualStats, bikeYearStats };
 }
 
-/* AUTO LOAD CACHE */
+/* BACKGROUND JOB DRIVER */
+
+async function runPrBackfillJobLoop() {
+  if (prBackfillJob.running) return;
+
+  prBackfillJob.running = true;
+  prBackfillJob.stopRequested = false;
+  prBackfillJob.startedAt = prBackfillJob.startedAt || new Date().toISOString();
+  prBackfillJob.mode = "running";
+  prBackfillJob.message = "PR backfill running";
+
+  while (!prBackfillJob.stopRequested) {
+    if (prBackfillJob.nextRetryAt) {
+      const now = Date.now();
+      const retryAt = new Date(prBackfillJob.nextRetryAt).getTime();
+      if (retryAt > now) {
+        prBackfillJob.mode = "waiting";
+        prBackfillJob.message = `Waiting until ${new Date(prBackfillJob.nextRetryAt).toLocaleString()} to retry`;
+        await sleep(Math.min(retryAt - now, 60000));
+        continue;
+      }
+      prBackfillJob.nextRetryAt = null;
+    }
+
+    if (!access_token) {
+      prBackfillJob.mode = "error";
+      prBackfillJob.message = "Not authenticated";
+      break;
+    }
+
+    const cache = ensureCacheShape(loadCache());
+    if (!cache || !cache.activities || cache.activities.length === 0) {
+      prBackfillJob.mode = "error";
+      prBackfillJob.message = "No cache available. Run a full data pull first.";
+      break;
+    }
+
+    requestCount = 0;
+
+    try {
+      const result = await backfillSegmentEffortsResumable(cache, {
+        batchSize: prBackfillJob.batchSize,
+        reserve: prBackfillJob.reserve
+      });
+
+      const meta = result.meta;
+      prBackfillJob.lastRunAt = meta.lastRunAt;
+      prBackfillJob.totalEligible = meta.totalEligible;
+      prBackfillJob.remaining = meta.remaining;
+      prBackfillJob.nextIndex = meta.nextIndex;
+      prBackfillJob.fetchedThisRun = meta.fetchedThisRun;
+      prBackfillJob.processed = meta.totalEligible - meta.remaining;
+      prBackfillJob.completed = meta.completed;
+
+      if (meta.completed) {
+        prBackfillJob.mode = "complete";
+        prBackfillJob.message = "PR backfill complete";
+        prBackfillJob.running = false;
+        prBackfillJob.nextRetryAt = null;
+        return;
+      }
+
+      if (meta.fetchedThisRun > 0) {
+        prBackfillJob.idlePasses = 0;
+        prBackfillJob.mode = "running";
+        prBackfillJob.message = `Fetched ${meta.fetchedThisRun} rides this pass`;
+        await sleep(1000);
+        continue;
+      }
+
+      prBackfillJob.idlePasses += 1;
+      const nextRetry = getNextRetryTime();
+      prBackfillJob.nextRetryAt = nextRetry.toISOString();
+      prBackfillJob.mode = "waiting";
+      prBackfillJob.message = `No progress due to rate limits. Waiting until ${nextRetry.toLocaleString()}`;
+    } catch (err) {
+      console.error("[PR Backfill Job] Error:", err);
+      const nextRetry = getNextQuarterHourUtc();
+      prBackfillJob.nextRetryAt = nextRetry.toISOString();
+      prBackfillJob.mode = "error";
+      prBackfillJob.message = `Error encountered. Retrying at ${nextRetry.toLocaleString()}`;
+    }
+  }
+
+  prBackfillJob.running = false;
+  if (prBackfillJob.stopRequested) {
+    prBackfillJob.mode = "stopped";
+    prBackfillJob.message = "PR backfill stopped";
+  }
+}
+
+function getPrBackfillStatus() {
+  const cache = ensureCacheShape(loadCache());
+  const meta = cache && cache.segmentBackfill ? cache.segmentBackfill : {};
+
+  return {
+    running: prBackfillJob.running,
+    stopRequested: prBackfillJob.stopRequested,
+    startedAt: prBackfillJob.startedAt,
+    lastRunAt: prBackfillJob.lastRunAt || meta.lastRunAt || null,
+    nextRetryAt: prBackfillJob.nextRetryAt,
+    mode: prBackfillJob.mode,
+    message: prBackfillJob.message,
+    totalEligible: prBackfillJob.totalEligible || meta.totalEligible || 0,
+    remaining: prBackfillJob.remaining || meta.remaining || 0,
+    nextIndex: prBackfillJob.nextIndex || meta.nextIndex || 0,
+    fetchedThisRun: prBackfillJob.fetchedThisRun || meta.fetchedThisRun || 0,
+    processed: prBackfillJob.processed || Math.max(0, (meta.totalEligible || 0) - (meta.remaining || 0)),
+    completed: prBackfillJob.completed || meta.completed || false,
+    batchSize: prBackfillJob.batchSize,
+    reserve: prBackfillJob.reserve
+  };
+}
+
+/* API */
 
 app.get("/api/analytics/auto", async (req, res) => {
   if (!access_token) {
     return res.status(401).json({ error: "Not authenticated" });
   }
 
-  const cache = loadCache();
+  const cache = ensureCacheShape(loadCache());
 
   if (cache) {
     return res.json({
       cached: true,
       ...cache,
+      prBackfill: getPrBackfillStatus(),
       message: "Loaded from local cache.json"
     });
   }
@@ -520,7 +816,67 @@ app.get("/api/analytics/auto", async (req, res) => {
   });
 });
 
-/* FULL PULL + REFRESH + RESUME */
+app.post("/api/pr-backfill/start", async (req, res) => {
+  if (!access_token) return res.status(401).json({ error: "Not authenticated" });
+
+  const cache = ensureCacheShape(loadCache());
+  if (!cache || !cache.activities || cache.activities.length === 0) {
+    return res.status(400).json({ error: "No cache available. Run a full data pull first." });
+  }
+
+  if (prBackfillJob.running) {
+    return res.json({
+      ok: true,
+      alreadyRunning: true,
+      prBackfill: getPrBackfillStatus(),
+      message: "PR backfill already running"
+    });
+  }
+
+  prBackfillJob = {
+    ...prBackfillJob,
+    running: false,
+    stopRequested: false,
+    startedAt: new Date().toISOString(),
+    lastRunAt: null,
+    nextRetryAt: null,
+    mode: "starting",
+    message: "PR backfill starting",
+    totalEligible: cache.segmentBackfill.totalEligible || 0,
+    remaining: cache.segmentBackfill.remaining || 0,
+    nextIndex: cache.segmentBackfill.nextIndex || 0,
+    fetchedThisRun: 0,
+    processed: 0,
+    completed: false,
+    batchSize: Number(req.query.batchSize || req.body?.batchSize || 25),
+    reserve: Number(req.query.reserve || req.body?.reserve || 25),
+    idlePasses: 0
+  };
+
+  runPrBackfillJobLoop();
+
+  return res.json({
+    ok: true,
+    prBackfill: getPrBackfillStatus(),
+    message: "PR backfill started"
+  });
+});
+
+app.post("/api/pr-backfill/stop", async (req, res) => {
+  prBackfillJob.stopRequested = true;
+  return res.json({
+    ok: true,
+    prBackfill: getPrBackfillStatus(),
+    message: "PR backfill stop requested"
+  });
+});
+
+app.get("/api/pr-backfill/status", async (req, res) => {
+  return res.json({
+    ok: true,
+    prBackfill: getPrBackfillStatus()
+  });
+});
 
 app.get("/api/analytics", async (req, res) => {
   if (!access_token) return res.status(401).json({ error: "Not authenticated" });
@@ -528,16 +884,13 @@ app.get("/api/analytics", async (req, res) => {
   const full = req.query.full === "1";
   const refresh = req.query.refresh === "1";
   const resume = req.query.resume === "1";
-  const cache = loadCache();
-  
-  // Only fetch segments if explicitly requested via ?segments=1
+  const cache = ensureCacheShape(loadCache());
   const fetchSegments = req.query.segments === "1";
-  
+
   requestCount = 0;
   const mode = full ? "FULL" : refresh ? "REFRESH" : resume ? "RESUME" : "AUTO";
   console.log(`\n[API Call] Starting ${mode} pull. fetchSegments=${fetchSegments}`);
 
-  /* FULL PULL: always fetch everything fresh */
   if (full) {
     const allActivities = await fetchAllActivitiesOnce();
 
@@ -551,7 +904,7 @@ app.get("/api/analytics", async (req, res) => {
     const { activityCounts, gearTotals, annualStats, bikeYearStats } = computeAnalytics(allActivities, segmentData);
     const gearDetails = await fetchMissingGearDetails({}, gearTotals);
 
-    const newCache = {
+    const newCache = setSegmentBackfillMeta({
       activities: allActivities,
       segmentData,
       activityCounts,
@@ -559,52 +912,53 @@ app.get("/api/analytics", async (req, res) => {
       gearDetails,
       annualStats,
       bikeYearStats
-    };
+    }, {
+      enabled: false,
+      nextIndex: 0,
+      completed: false,
+      lastRunAt: null,
+      totalEligible: allActivities.filter(a => a.sport_type === "Ride").length,
+      fetchedThisRun: 0,
+      remaining: allActivities.filter(a => a.sport_type === "Ride").length
+    });
 
     saveCache(newCache);
 
-    console.log(`[API Call] Complete. Total: ${allActivities.length} activities, ${requestCount} API calls used`);
     return res.json({
       cached: false,
       ...newCache,
+      prBackfill: getPrBackfillStatus(),
       message: `Full data pull complete. (${requestCount} API calls, ${allActivities.length} activities)`
     });
   }
 
-  /* RESUME: fetch activities older than the oldest cached */
   if (resume) {
     if (!cache || !cache.activities || cache.activities.length === 0) {
-      return res.json({
-        error: "No cache to resume from. Run a full pull first."
-      });
+      return res.json({ error: "No cache to resume from. Run a full pull first." });
     }
 
-    // Get the oldest cached activity
     const oldestCached = cache.activities[cache.activities.length - 1];
-    const resumeFromDate = oldestCached.start_date;
-
-    console.log(`[Resume] Oldest cached activity: ${resumeFromDate}`);
-
-    // Fetch activities before this date
-    const olderActivities = await fetchActivitiesBefore(resumeFromDate);
+    const olderActivities = await fetchActivitiesBefore(oldestCached.start_date);
 
     if (!olderActivities || olderActivities.length === 0) {
-      console.log(`[Resume] No older activities found. Cache is complete.`);
-      return res.json({ 
-        cached: true, 
-        ...cache, 
-        message: "Resume: No older activities found. Cache appears complete." 
+      return res.json({
+        cached: true,
+        ...cache,
+        prBackfill: getPrBackfillStatus(),
+        message: "Resume: No older activities found. Cache appears complete."
       });
     }
 
-    // Combine: newer activities first, then older ones
     const allActivities = cache.activities.concat(olderActivities);
-
     const segmentData = await fetchSegmentEffortsForActivities(olderActivities, cache.segmentData || {}, fetchSegments);
     const { activityCounts, gearTotals, annualStats, bikeYearStats } = computeAnalytics(allActivities, segmentData);
     const gearDetails = await fetchMissingGearDetails(cache.gearDetails, gearTotals);
 
-    const newCache = {
+    const rideCount = allActivities.filter(a => a.sport_type === "Ride").length;
+    const remaining = allActivities.filter(a => a.sport_type === "Ride" && !(a.id in segmentData)).length;
+
+    const newCache = setSegmentBackfillMeta({
+      ...cache,
       activities: allActivities,
       segmentData,
       activityCounts,
@@ -612,30 +966,36 @@ app.get("/api/analytics", async (req, res) => {
       gearDetails,
       annualStats,
       bikeYearStats
-    };
+    }, {
+      enabled: true,
+      nextIndex: cache.segmentBackfill?.nextIndex || 0,
+      completed: remaining === 0,
+      lastRunAt: cache.segmentBackfill?.lastRunAt || null,
+      totalEligible: rideCount,
+      fetchedThisRun: 0,
+      remaining
+    });
 
     saveCache(newCache);
 
-    console.log(`[API Call] Resume complete. Added ${olderActivities.length} older activities. Total: ${allActivities.length} activities, ${requestCount} API calls used`);
     return res.json({
       cached: false,
       ...newCache,
+      prBackfill: getPrBackfillStatus(),
       message: `Resume complete. Added ${olderActivities.length} older activities. (${requestCount} API calls, ${allActivities.length} total activities)`
     });
   }
 
-  /* If cache exists and not refreshing, return cache */
-  if (!refresh && cache) {
-    console.log(`[API Call] Cache hit, returning without API calls. (${cache.activities.length} activities in cache)`);
-    return res.json({ 
-      cached: true, 
-      ...cache, 
-      message: `Loaded from cache.json (${cache.activities.length} activities)` 
+  if (!refresh && cache && cache.activities.length) {
+    return res.json({
+      cached: true,
+      ...cache,
+      prBackfill: getPrBackfillStatus(),
+      message: `Loaded from cache.json (${cache.activities.length} activities)`
     });
   }
 
-  /* If no cache and refresh requested ? full pull */
-  if (!cache) {
+  if (!cache || !cache.activities || cache.activities.length === 0) {
     const allActivities = await fetchAllActivitiesOnce();
 
     if (!allActivities || allActivities.length === 0) {
@@ -648,7 +1008,9 @@ app.get("/api/analytics", async (req, res) => {
     const { activityCounts, gearTotals, annualStats, bikeYearStats } = computeAnalytics(allActivities, segmentData);
     const gearDetails = await fetchMissingGearDetails({}, gearTotals);
 
-    const newCache = {
+    const rideCount = allActivities.filter(a => a.sport_type === "Ride").length;
+
+    const newCache = setSegmentBackfillMeta({
       activities: allActivities,
       segmentData,
       activityCounts,
@@ -656,28 +1018,35 @@ app.get("/api/analytics", async (req, res) => {
       gearDetails,
       annualStats,
       bikeYearStats
-    };
+    }, {
+      enabled: false,
+      nextIndex: 0,
+      completed: false,
+      lastRunAt: null,
+      totalEligible: rideCount,
+      fetchedThisRun: 0,
+      remaining: rideCount
+    });
 
     saveCache(newCache);
 
-    console.log(`[API Call] Complete. Total: ${allActivities.length} activities, ${requestCount} API calls used`);
     return res.json({
       cached: false,
       ...newCache,
+      prBackfill: getPrBackfillStatus(),
       message: `Initial full fetch complete. (${requestCount} API calls, ${allActivities.length} activities)`
     });
   }
 
-  /* Incremental refresh (default) */
   const newestDate = cache.activities[0].start_date;
   const newActs = await fetchNewActivitiesSince(newestDate);
 
   if (!newActs || newActs.length === 0) {
-    console.log(`[API Call] No new activities. Total: ${cache.activities.length} activities cached.`);
-    return res.json({ 
-      cached: true, 
-      ...cache, 
-      message: `No new activities. (${cache.activities.length} activities in cache)` 
+    return res.json({
+      cached: true,
+      ...cache,
+      prBackfill: getPrBackfillStatus(),
+      message: `No new activities. (${cache.activities.length} activities in cache)`
     });
   }
 
@@ -686,7 +1055,11 @@ app.get("/api/analytics", async (req, res) => {
   const { activityCounts, gearTotals, annualStats, bikeYearStats } = computeAnalytics(allActivities, segmentData);
   const gearDetails = await fetchMissingGearDetails(cache.gearDetails, gearTotals);
 
-  const newCache = {
+  const rideCount = allActivities.filter(a => a.sport_type === "Ride").length;
+  const remaining = allActivities.filter(a => a.sport_type === "Ride" && !(a.id in segmentData)).length;
+
+  const newCache = setSegmentBackfillMeta({
+    ...cache,
     activities: allActivities,
     segmentData,
     activityCounts,
@@ -694,14 +1067,22 @@ app.get("/api/analytics", async (req, res) => {
     gearDetails,
     annualStats,
     bikeYearStats
-  };
+  }, {
+    enabled: true,
+    nextIndex: cache.segmentBackfill?.nextIndex || 0,
+    completed: remaining === 0,
+    lastRunAt: cache.segmentBackfill?.lastRunAt || null,
+    totalEligible: rideCount,
+    fetchedThisRun: 0,
+    remaining
+  });
 
   saveCache(newCache);
 
-  console.log(`[API Call] Complete. Added ${newActs.length} new activities. Total: ${allActivities.length}, ${requestCount} API calls used`);
   res.json({
     cached: false,
     ...newCache,
+    prBackfill: getPrBackfillStatus(),
     message: `Added ${newActs.length} new activities. (${requestCount} API calls, ${allActivities.length} total)`
   });
 });
