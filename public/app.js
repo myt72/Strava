@@ -168,6 +168,11 @@ function formatDate(dateStr) {
   return `${mm}/${dd}/${yyyy}`;
 }
 
+function formatDateTime(dateStr) {
+  if (!dateStr) return "-";
+  return new Date(dateStr).toLocaleString();
+}
+
 function formatYearsBetween(startDate, endDate) {
   if (!startDate || !endDate) return "-";
   const start = new Date(startDate).getTime();
@@ -311,6 +316,16 @@ function iconFire() {
   `;
 }
 
+function iconTrophy() {
+  return `
+    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M8 4h8v3a4 4 0 0 1-8 0V4z" fill="none" stroke="currentColor" stroke-width="2"/>
+      <path d="M6 6H4a2 2 0 0 0 2 2M18 6h2a2 2 0 0 1-2 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <path d="M12 11v4M9 20h6M10 15h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  `;
+}
+
 function showSpinner() {
   document.getElementById("spinner").style.display = "block";
 }
@@ -365,6 +380,8 @@ let annualBreakdownMode = localStorage.getItem(STORAGE_KEYS.annualBreakdownMode)
 let expandedBikeYears = new Set(JSON.parse(localStorage.getItem(STORAGE_KEYS.expandedBikeYears) || "[]"));
 let bikeHistoryExpanded = new Set(JSON.parse(localStorage.getItem(STORAGE_KEYS.bikeHistoryExpanded) || "[]"));
 
+let prBackfillPollTimer = null;
+
 function saveSelectedBikes() {
   localStorage.setItem(STORAGE_KEYS.selectedBikes, JSON.stringify(Array.from(selectedBikes.keys())));
 }
@@ -411,6 +428,129 @@ function applyThemePreference() {
   }
   if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
     document.body.classList.add("dark");
+  }
+}
+
+function showPrBackfillPanel() {
+  const panel = document.getElementById("pr-backfill-panel");
+  if (panel) panel.style.display = "block";
+}
+
+function renderPrBackfillProgress(prBackfill, modeText = "", extraText = "") {
+  const container = document.getElementById("pr-backfill-content");
+  if (!container) return;
+
+  if (!prBackfill) {
+    container.innerHTML = `<div class="metric-row"><div class="metric">No PR backfill progress available yet.</div></div>`;
+    return;
+  }
+
+  const totalEligible = prBackfill.totalEligible || 0;
+  const remaining = prBackfill.remaining ?? 0;
+  const processed = prBackfill.processed ?? Math.max(0, totalEligible - remaining);
+  const fetchedThisRun = prBackfill.fetchedThisRun ?? 0;
+  const nextIndex = prBackfill.nextIndex ?? 0;
+  const lastRunAt = prBackfill.lastRunAt ? formatDateTime(prBackfill.lastRunAt) : "-";
+  const nextRetryAt = prBackfill.nextRetryAt ? formatDateTime(prBackfill.nextRetryAt) : "-";
+
+  container.innerHTML = `
+    <div class="metric-row">
+      <div class="metric"><strong>Status:</strong> ${escapeHtml(modeText || prBackfill.mode || "Unknown")}</div>
+    </div>
+    <div class="metric-row">
+      <div class="metric"><strong>Total eligible rides:</strong> ${comma(totalEligible)}</div>
+      <div class="metric"><strong>Processed:</strong> ${comma(processed)}</div>
+      <div class="metric"><strong>Remaining:</strong> ${comma(remaining)}</div>
+    </div>
+    <div class="metric-row">
+      <div class="metric"><strong>Fetched this run:</strong> ${comma(fetchedThisRun)}</div>
+      <div class="metric"><strong>Next index:</strong> ${comma(nextIndex)}</div>
+      <div class="metric"><strong>Last run:</strong> ${escapeHtml(lastRunAt)}</div>
+    </div>
+    <div class="metric-row">
+      <div class="metric"><strong>Next retry:</strong> ${escapeHtml(nextRetryAt)}</div>
+    </div>
+    ${extraText ? `<div class="metric-row"><div class="metric">${escapeHtml(extraText)}</div></div>` : ""}
+  `;
+}
+
+function clearPrBackfillPolling() {
+  if (prBackfillPollTimer) {
+    clearTimeout(prBackfillPollTimer);
+    prBackfillPollTimer = null;
+  }
+}
+
+async function pollPrBackfillStatus() {
+  clearPrBackfillPolling();
+
+  try {
+    const res = await fetch("http://192.168.0.115:5000/api/pr-backfill/status");
+    const data = await res.json();
+    const status = data.prBackfill;
+
+    window.__lastPrBackfill = status;
+    showPrBackfillPanel();
+    renderPrBackfillProgress(status, status.mode, status.message);
+
+    const statusDiv = document.getElementById("status");
+    statusDiv.innerHTML = status.message || "PR backfill status updated.";
+
+    if (status.running || status.mode === "waiting" || status.mode === "starting") {
+      prBackfillPollTimer = setTimeout(pollPrBackfillStatus, 15000);
+    }
+  } catch (err) {
+    console.error(err);
+    const statusDiv = document.getElementById("status");
+    statusDiv.innerHTML = "Failed to poll PR backfill status.";
+  }
+}
+
+async function startPrBackfill() {
+  showPrBackfillPanel();
+  const statusDiv = document.getElementById("status");
+  statusDiv.innerHTML = "Starting PR backfill background job…";
+
+  try {
+    const res = await fetch("http://192.168.0.115:5000/api/pr-backfill/start", {
+      method: "POST"
+    });
+    const data = await res.json();
+
+    if (data.error) {
+      statusDiv.innerHTML = data.error;
+      renderPrBackfillProgress(window.__lastPrBackfill, "Error", data.error);
+      return;
+    }
+
+    window.__lastPrBackfill = data.prBackfill;
+    renderPrBackfillProgress(data.prBackfill, data.prBackfill.mode, data.message || "");
+    statusDiv.innerHTML = data.message || "PR backfill started.";
+
+    await pollPrBackfillStatus();
+  } catch (err) {
+    console.error(err);
+    statusDiv.innerHTML = "Failed to start PR backfill.";
+  }
+}
+
+async function stopPrBackfill() {
+  const statusDiv = document.getElementById("status");
+  statusDiv.innerHTML = "Stopping PR backfill…";
+
+  try {
+    const res = await fetch("http://192.168.0.115:5000/api/pr-backfill/stop", {
+      method: "POST"
+    });
+    const data = await res.json();
+
+    window.__lastPrBackfill = data.prBackfill;
+    renderPrBackfillProgress(data.prBackfill, data.prBackfill.mode, data.message || "");
+    statusDiv.innerHTML = data.message || "PR backfill stop requested.";
+    clearPrBackfillPolling();
+  } catch (err) {
+    console.error(err);
+    statusDiv.innerHTML = "Failed to stop PR backfill.";
   }
 }
 
@@ -495,6 +635,7 @@ function deriveRideInsights(data) {
       elevation: total.elevation || 0,
       count: total.count || 0,
       moving_time: total.moving_time || 0,
+      pr_count: total.pr_count || 0,
       avg_speed_mph: total.avg_speed_mph || 0,
       avg_distance_per_ride: total.count > 0 ? total.distance / total.count : 0,
       avg_elevation_per_ride: total.count > 0 ? total.elevation / total.count : 0
@@ -979,6 +1120,12 @@ function renderBikeComparison() {
   });
   html += `</tr>`;
 
+  html += `<tr><td><strong>${iconTrophy()} PRs</strong></td>`;
+  bikeArray.forEach(bike => {
+    html += `<td>${comma(bike.data.pr_count || 0)}</td>`;
+  });
+  html += `</tr>`;
+
   html += `</tbody></table></div>`;
 
   html += `<div class="comparison-mobile">`;
@@ -990,6 +1137,7 @@ function renderBikeComparison() {
           <div class="metric">${iconDistance()} ${comma(miles(bike.data.distance).toFixed(1))} mi</div>
           <div class="metric">${iconElevation()} ${comma(feet(bike.data.elevation).toFixed(0))} ft</div>
           <div class="metric">${iconRides()} ${comma(bike.data.count)} Activities</div>
+          <div class="metric">${iconTrophy()} ${comma(bike.data.pr_count || 0)} PRs</div>
         </div>
       </div>
     `;
@@ -1068,7 +1216,7 @@ function renderBikeRows(rows, rideInsights) {
     const total = row.total;
     const isSelected = selectedBikes.has(row.gid);
     const speedLabel = formatSpeed(total.avg_speed_mph, "Ride");
-    const prLabel = total.pr_count > 0 ? `${comma(total.pr_count)} PRs` : "";
+    const prLabel = `${comma(total.pr_count || 0)} PR${(total.pr_count || 0) === 1 ? "" : "s"}`;
     const historyOpen = bikeHistoryExpanded.has(row.gid);
     const yearCount = row.years.length;
     const bikeHistoryLabel = historyOpen
@@ -1106,8 +1254,8 @@ function renderBikeRows(rows, rideInsights) {
           <div class="bike-summary-metric">${iconElevation()} ${comma(feet(total.elevation).toFixed(0))} ft</div>
           <div class="bike-summary-metric">${iconRides()} ${comma(total.count)} Activities</div>
           <div class="bike-summary-metric">${iconTime()} ${formatDuration(total.moving_time)}</div>
+          <div class="bike-summary-metric">${iconTrophy()} ${prLabel}</div>
           ${speedLabel ? `<div class="bike-summary-metric speed-metric">${iconSpeed()} ${speedLabel}</div>` : ""}
-          ${prLabel ? `<div class="bike-summary-metric">${prLabel}</div>` : ""}
         </div>
 
         <div class="bike-insights-grid">
@@ -1161,6 +1309,7 @@ function renderBikeRows(rows, rideInsights) {
         const yearSpeedLabel = formatSpeed(y.avg_speed_mph, "Ride");
         const yearId = `${row.gid}-${year}`;
         const weeksOpen = expandedBikeYears.has(yearId);
+        const yearPrLabel = `${comma(y.pr_count || 0)} PR${(y.pr_count || 0) === 1 ? "" : "s"}`;
 
         const weekEntries = Object.entries(y.weeks || {}).map(([key, value]) => {
           const numericWeek = Number(key);
@@ -1210,6 +1359,7 @@ function renderBikeRows(rows, rideInsights) {
                 <div class="bike-history-metric">${iconElevation()} ${comma(feet(y.elevation).toFixed(0))} ft</div>
                 <div class="bike-history-metric">${iconRides()} ${comma(y.count)} Activities</div>
                 <div class="bike-history-metric">${iconTime()} ${formatDuration(y.moving_time)}</div>
+                <div class="bike-history-metric">${iconTrophy()} ${yearPrLabel}</div>
                 ${yearSpeedLabel ? `<div class="bike-history-metric">${iconSpeed()} ${yearSpeedLabel}</div>` : ""}
               </div>
               <div class="bike-history-col-toggle">
@@ -1277,6 +1427,13 @@ async function renderAll(data) {
   renderAnnualStats(data);
   renderHighlights(rideInsights, data.gearDetails || {});
   renderBikeStats(data.bikeYearStats || {}, data.gearTotals || {}, data.gearDetails || {}, rideInsights);
+
+  if (data.prBackfill) {
+    window.__lastPrBackfill = data.prBackfill;
+    showPrBackfillPanel();
+    renderPrBackfillProgress(data.prBackfill, data.prBackfill.mode, data.prBackfill.message || "");
+  }
+
   const featuredActivities = await loadFeaturedActivities();
   renderFeaturedActivities(featuredActivities, data);
 }
@@ -1302,14 +1459,18 @@ window.onload = async () => {
 
   statusDiv.innerHTML = data.message;
   await renderAll(data);
+
+  if (data.prBackfill && (data.prBackfill.running || data.prBackfill.mode === "waiting" || data.prBackfill.mode === "starting")) {
+    pollPrBackfillStatus();
+  }
 };
 
 async function refreshData() {
   const statusDiv = document.getElementById("status");
-  statusDiv.innerHTML = "Refreshing (only new activities)…";
+  statusDiv.innerHTML = "Refreshing (only new activities + PR data)…";
   showSpinner();
 
-  const res = await fetch("http://192.168.0.115:5000/api/analytics?refresh=1");
+  const res = await fetch("http://192.168.0.115:5000/api/analytics?refresh=1&segments=1");
   const data = await res.json();
 
   hideSpinner();
@@ -1368,4 +1529,8 @@ async function fullPull() {
 
   statusDiv.innerHTML = data.message;
   await renderAll(data);
+}
+
+async function pullPrData() {
+  return startPrBackfill();
 }
