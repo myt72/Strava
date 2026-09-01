@@ -32,7 +32,7 @@
                 <path d="M20 12a8 8 0 1 1-2.34-5.66" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                 <path d="M20 4v6h-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
-              Refresh (only new activities)
+              Refresh (only new activities + PR data)
             </button>
             <button class="dropdown-item" onclick="resumePull(); toggleAdvancedMenu()">
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -50,6 +50,13 @@
               </svg>
               Full Data Pull
             </button>
+            <button class="dropdown-item" onclick="startPrBackfill(); toggleAdvancedMenu()">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M7 4a3 3 0 1 1 0 6a3 3 0 0 1 0-6zm0 10a3 3 0 1 1 0 6a3 3 0 0 1 0-6zm10-5a3 3 0 1 1 0 6a3 3 0 0 1 0-6z" fill="none" stroke="currentColor" stroke-width="2"/>
+                <path d="M10 7h4M10 17h4M17 12h0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              Pull PR Data (background job)
+            </button>
           </div>
         </div>
       </div>
@@ -62,6 +69,19 @@
 
     <div id="spinner">
       <div class="spinner-wheel"></div>
+    </div>
+
+    <div id="pr-backfill-panel" class="card" style="display:none;">
+      <div class="accent-bar"></div>
+      <div class="card-header">
+        <span>PR Backfill Progress</span>
+        <button id="stop-pr-backfill-btn" class="clear-comparison" onclick="stopPrBackfill()" style="padding: 6px 12px;">Stop PR Backfill</button>
+      </div>
+      <div id="pr-backfill-content">
+        <div class="metric-row">
+          <div class="metric">Waiting to start…</div>
+        </div>
+      </div>
     </div>
 
     <div id="kpi-summary" class="kpi-grid"></div>
