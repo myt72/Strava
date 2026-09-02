@@ -334,6 +334,134 @@ function hideSpinner() {
   document.getElementById("spinner").style.display = "none";
 }
 
+function renderPrBackfillAdmin(status) {
+  const content = document.getElementById("pr-backfill-admin-content");
+  const badge = document.getElementById("pr-backfill-menu-badge");
+  const stopBtn = document.getElementById("stop-pr-backfill-btn");
+
+  if (!content || !badge || !stopBtn) return;
+
+  if (!status) {
+    content.innerHTML = `<div class="dropdown-admin-empty">No PR backfill activity yet.</div>`;
+    badge.style.display = "none";
+    stopBtn.disabled = true;
+    return;
+  }
+
+  const isActive = status.running || status.mode === "waiting" || status.mode === "starting";
+  const processed = status.processed ?? Math.max(0, (status.totalEligible || 0) - (status.remaining || 0));
+  const nextRetry = status.nextRetryAt ? formatDateTime(status.nextRetryAt) : "—";
+  const lastRun = status.lastRunAt ? formatDateTime(status.lastRunAt) : "—";
+  const stateLabel = status.completed ? "Complete" : (status.mode || "Idle");
+
+  badge.style.display = isActive ? "inline-block" : "none";
+  badge.className = `menu-status-badge ${status.completed ? "complete" : "running"}`;
+  stopBtn.disabled = !isActive;
+
+  content.innerHTML = `
+    <div class="dropdown-admin-status-row">
+      <span class="dropdown-admin-label">Status</span>
+      <span class="dropdown-admin-value">${escapeHtml(stateLabel)}</span>
+    </div>
+    <div class="dropdown-admin-status-row">
+      <span class="dropdown-admin-label">Progress</span>
+      <span class="dropdown-admin-value">${comma(processed)} / ${comma(status.totalEligible || 0)}</span>
+    </div>
+    <div class="dropdown-admin-status-row">
+      <span class="dropdown-admin-label">Remaining</span>
+      <span class="dropdown-admin-value">${comma(status.remaining || 0)}</span>
+    </div>
+    <div class="dropdown-admin-status-row">
+      <span class="dropdown-admin-label">Fetched this run</span>
+      <span class="dropdown-admin-value">${comma(status.fetchedThisRun || 0)}</span>
+    </div>
+    <div class="dropdown-admin-status-row">
+      <span class="dropdown-admin-label">Last run</span>
+      <span class="dropdown-admin-value">${escapeHtml(lastRun)}</span>
+    </div>
+    <div class="dropdown-admin-status-row">
+      <span class="dropdown-admin-label">Next retry</span>
+      <span class="dropdown-admin-value">${escapeHtml(nextRetry)}</span>
+    </div>
+    <div class="dropdown-admin-note">${escapeHtml(status.message || "Idle")}</div>
+  `;
+}
+
+let prBackfillPollTimer = null;
+
+function clearPrBackfillPolling() {
+  if (prBackfillPollTimer) {
+    clearTimeout(prBackfillPollTimer);
+    prBackfillPollTimer = null;
+  }
+}
+
+async function pollPrBackfillStatus() {
+  clearPrBackfillPolling();
+
+  try {
+    const res = await fetch("http://192.168.0.115:5000/api/pr-backfill/status");
+    const data = await res.json();
+    const status = data.prBackfill;
+
+    window.__lastPrBackfill = status;
+    renderPrBackfillAdmin(status);
+
+    if (status && (status.running || status.mode === "waiting" || status.mode === "starting")) {
+      prBackfillPollTimer = setTimeout(pollPrBackfillStatus, 15000);
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function startPrBackfill() {
+  const statusDiv = document.getElementById("status");
+  statusDiv.innerHTML = "Starting PR backfill background job…";
+
+  try {
+    const res = await fetch("http://192.168.0.115:5000/api/pr-backfill/start", {
+      method: "POST"
+    });
+    const data = await res.json();
+
+    if (data.error) {
+      statusDiv.innerHTML = data.error;
+      renderPrBackfillAdmin(window.__lastPrBackfill || null);
+      return;
+    }
+
+    window.__lastPrBackfill = data.prBackfill;
+    renderPrBackfillAdmin(data.prBackfill);
+    statusDiv.innerHTML = data.message || "PR backfill started.";
+
+    await pollPrBackfillStatus();
+  } catch (err) {
+    console.error(err);
+    statusDiv.innerHTML = "Failed to start PR backfill.";
+  }
+}
+
+async function stopPrBackfill() {
+  const statusDiv = document.getElementById("status");
+  statusDiv.innerHTML = "Stopping PR backfill…";
+
+  try {
+    const res = await fetch("http://192.168.0.115:5000/api/pr-backfill/stop", {
+      method: "POST"
+    });
+    const data = await res.json();
+
+    window.__lastPrBackfill = data.prBackfill;
+    renderPrBackfillAdmin(data.prBackfill);
+    statusDiv.innerHTML = data.message || "PR backfill stop requested.";
+    clearPrBackfillPolling();
+  } catch (err) {
+    console.error(err);
+    statusDiv.innerHTML = "Failed to stop PR backfill.";
+  }
+}
+
 function getWeekStartMonday(dateStr) {
   const d = new Date(dateStr);
   const local = new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -379,8 +507,6 @@ let annualExpandedYears = new Set(JSON.parse(localStorage.getItem(STORAGE_KEYS.a
 let annualBreakdownMode = localStorage.getItem(STORAGE_KEYS.annualBreakdownMode) || "monthly";
 let expandedBikeYears = new Set(JSON.parse(localStorage.getItem(STORAGE_KEYS.expandedBikeYears) || "[]"));
 let bikeHistoryExpanded = new Set(JSON.parse(localStorage.getItem(STORAGE_KEYS.bikeHistoryExpanded) || "[]"));
-
-let prBackfillPollTimer = null;
 
 function saveSelectedBikes() {
   localStorage.setItem(STORAGE_KEYS.selectedBikes, JSON.stringify(Array.from(selectedBikes.keys())));
@@ -428,129 +554,6 @@ function applyThemePreference() {
   }
   if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
     document.body.classList.add("dark");
-  }
-}
-
-function showPrBackfillPanel() {
-  const panel = document.getElementById("pr-backfill-panel");
-  if (panel) panel.style.display = "block";
-}
-
-function renderPrBackfillProgress(prBackfill, modeText = "", extraText = "") {
-  const container = document.getElementById("pr-backfill-content");
-  if (!container) return;
-
-  if (!prBackfill) {
-    container.innerHTML = `<div class="metric-row"><div class="metric">No PR backfill progress available yet.</div></div>`;
-    return;
-  }
-
-  const totalEligible = prBackfill.totalEligible || 0;
-  const remaining = prBackfill.remaining ?? 0;
-  const processed = prBackfill.processed ?? Math.max(0, totalEligible - remaining);
-  const fetchedThisRun = prBackfill.fetchedThisRun ?? 0;
-  const nextIndex = prBackfill.nextIndex ?? 0;
-  const lastRunAt = prBackfill.lastRunAt ? formatDateTime(prBackfill.lastRunAt) : "-";
-  const nextRetryAt = prBackfill.nextRetryAt ? formatDateTime(prBackfill.nextRetryAt) : "-";
-
-  container.innerHTML = `
-    <div class="metric-row">
-      <div class="metric"><strong>Status:</strong> ${escapeHtml(modeText || prBackfill.mode || "Unknown")}</div>
-    </div>
-    <div class="metric-row">
-      <div class="metric"><strong>Total eligible rides:</strong> ${comma(totalEligible)}</div>
-      <div class="metric"><strong>Processed:</strong> ${comma(processed)}</div>
-      <div class="metric"><strong>Remaining:</strong> ${comma(remaining)}</div>
-    </div>
-    <div class="metric-row">
-      <div class="metric"><strong>Fetched this run:</strong> ${comma(fetchedThisRun)}</div>
-      <div class="metric"><strong>Next index:</strong> ${comma(nextIndex)}</div>
-      <div class="metric"><strong>Last run:</strong> ${escapeHtml(lastRunAt)}</div>
-    </div>
-    <div class="metric-row">
-      <div class="metric"><strong>Next retry:</strong> ${escapeHtml(nextRetryAt)}</div>
-    </div>
-    ${extraText ? `<div class="metric-row"><div class="metric">${escapeHtml(extraText)}</div></div>` : ""}
-  `;
-}
-
-function clearPrBackfillPolling() {
-  if (prBackfillPollTimer) {
-    clearTimeout(prBackfillPollTimer);
-    prBackfillPollTimer = null;
-  }
-}
-
-async function pollPrBackfillStatus() {
-  clearPrBackfillPolling();
-
-  try {
-    const res = await fetch("http://192.168.0.115:5000/api/pr-backfill/status");
-    const data = await res.json();
-    const status = data.prBackfill;
-
-    window.__lastPrBackfill = status;
-    showPrBackfillPanel();
-    renderPrBackfillProgress(status, status.mode, status.message);
-
-    const statusDiv = document.getElementById("status");
-    statusDiv.innerHTML = status.message || "PR backfill status updated.";
-
-    if (status.running || status.mode === "waiting" || status.mode === "starting") {
-      prBackfillPollTimer = setTimeout(pollPrBackfillStatus, 15000);
-    }
-  } catch (err) {
-    console.error(err);
-    const statusDiv = document.getElementById("status");
-    statusDiv.innerHTML = "Failed to poll PR backfill status.";
-  }
-}
-
-async function startPrBackfill() {
-  showPrBackfillPanel();
-  const statusDiv = document.getElementById("status");
-  statusDiv.innerHTML = "Starting PR backfill background job…";
-
-  try {
-    const res = await fetch("http://192.168.0.115:5000/api/pr-backfill/start", {
-      method: "POST"
-    });
-    const data = await res.json();
-
-    if (data.error) {
-      statusDiv.innerHTML = data.error;
-      renderPrBackfillProgress(window.__lastPrBackfill, "Error", data.error);
-      return;
-    }
-
-    window.__lastPrBackfill = data.prBackfill;
-    renderPrBackfillProgress(data.prBackfill, data.prBackfill.mode, data.message || "");
-    statusDiv.innerHTML = data.message || "PR backfill started.";
-
-    await pollPrBackfillStatus();
-  } catch (err) {
-    console.error(err);
-    statusDiv.innerHTML = "Failed to start PR backfill.";
-  }
-}
-
-async function stopPrBackfill() {
-  const statusDiv = document.getElementById("status");
-  statusDiv.innerHTML = "Stopping PR backfill…";
-
-  try {
-    const res = await fetch("http://192.168.0.115:5000/api/pr-backfill/stop", {
-      method: "POST"
-    });
-    const data = await res.json();
-
-    window.__lastPrBackfill = data.prBackfill;
-    renderPrBackfillProgress(data.prBackfill, data.prBackfill.mode, data.message || "");
-    statusDiv.innerHTML = data.message || "PR backfill stop requested.";
-    clearPrBackfillPolling();
-  } catch (err) {
-    console.error(err);
-    statusDiv.innerHTML = "Failed to stop PR backfill.";
   }
 }
 
@@ -790,7 +793,6 @@ function renderHighlights(rideInsights, gearDetails = {}) {
       ${bikeCard("Biggest mileage week", h.biggestMileageWeekBike, h.biggestMileageWeekBike ? `${comma(miles(h.biggestMileageWeekBike.distance).toFixed(1))} mi` : "-", h.biggestMileageWeekBike ? `Week of ${h.biggestMileageWeekBike.label}` : "")}
       ${bikeCard("Biggest climbing week", h.biggestClimbingWeekBike, h.biggestClimbingWeekBike ? `${comma(feet(h.biggestClimbingWeekBike.elevation).toFixed(0))} ft` : "-", h.biggestClimbingWeekBike ? `Week of ${h.biggestClimbingWeekBike.label}` : "")}
       ${bikeCard("Longest-used bike", h.longestUsedBike, h.longestUsedBike ? formatYearsBetween(h.longestUsedBike.firstRide, h.longestUsedBike.lastRide) : "-", h.longestUsedBike ? `${formatDate(h.longestUsedBike.firstRide)} to ${formatDate(h.longestUsedBike.lastRide)}` : "")}
-
       ${activityCard("Longest single activity", h.longestActivity, h.longestActivity ? `${comma(miles(h.longestActivity.distance || 0).toFixed(1))} mi` : "-")}
       ${activityCard("Most elevation in a single activity", h.highestElevationActivity, h.highestElevationActivity ? `${comma(feet(h.highestElevationActivity.total_elevation_gain || 0).toFixed(0))} ft` : "-")}
       ${activityCard("Longest activity time", h.longestMovingTimeActivity, h.longestMovingTimeActivity ? formatDuration(h.longestMovingTimeActivity.moving_time || 0) : "-")}
@@ -1430,8 +1432,9 @@ async function renderAll(data) {
 
   if (data.prBackfill) {
     window.__lastPrBackfill = data.prBackfill;
-    showPrBackfillPanel();
-    renderPrBackfillProgress(data.prBackfill, data.prBackfill.mode, data.prBackfill.message || "");
+    renderPrBackfillAdmin(data.prBackfill);
+  } else {
+    renderPrBackfillAdmin(window.__lastPrBackfill || null);
   }
 
   const featuredActivities = await loadFeaturedActivities();
