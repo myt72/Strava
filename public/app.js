@@ -3,11 +3,11 @@ function comma(x) {
 }
 
 function miles(meters) {
-  return meters / 1609.34;
+  return (meters || 0) / 1609.34;
 }
 
 function feet(meters) {
-  return meters * 3.28084;
+  return (meters || 0) * 3.28084;
 }
 
 function escapeHtml(value) {
@@ -71,82 +71,6 @@ function renderActivityName(activity, gearDetails) {
     <div class="highlight-bike">${titleHtml}</div>
     ${secondary ? `<div class="highlight-subtext">${secondary}</div>` : ""}
   `;
-}
-
-async function loadFeaturedActivities() {
-  try {
-    const res = await fetch("featured-activities.json", { cache: "no-store" });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return Array.isArray(data) ? data : [];
-  } catch (err) {
-    console.warn("Unable to load featured activities config", err);
-    return [];
-  }
-}
-
-function renderFeaturedActivities(items, data) {
-  const container = document.getElementById("featured-activities-content");
-  if (!container) return;
-
-  if (!items.length) {
-    container.innerHTML = `<div class="empty-state">No featured activities configured yet.</div>`;
-    return;
-  }
-
-  container.innerHTML = `
-    <div class="featured-activities-grid">
-      ${items.map(item => {
-        const title = escapeHtml(item.title || "Untitled Activity");
-        const caption = item.caption ? `<div class="featured-activity-caption">${escapeHtml(item.caption)}</div>` : "";
-        const activityUrl = item.activityUrl || "";
-        const activityId = extractStravaActivityId(activityUrl);
-        const activity = findActivityById(data.activities, activityId);
-
-        let metricsHtml = `<div class="featured-activity-link-disabled">Activity not found in dashboard data</div>`;
-
-        if (activity) {
-          const bikeName = getGearName(data.gearDetails, activity.gear_id);
-          metricsHtml = `
-            <div class="featured-activity-metrics">
-              <div class="featured-activity-metric">${iconDistance()} ${comma(miles(activity.distance || 0).toFixed(1))} mi</div>
-              <div class="featured-activity-metric">${iconElevation()} ${comma(feet(activity.total_elevation_gain || 0).toFixed(0))} ft</div>
-              <div class="featured-activity-metric">${iconTime()} ${formatDuration(activity.moving_time || 0)}</div>
-              <div class="featured-activity-metric">${iconCalendar()} ${formatDate(activity.start_date)}</div>
-              <div class="featured-activity-metric">${escapeHtml(activity.sport_type || "-")}</div>
-              <div class="featured-activity-metric">${iconRides()} ${escapeHtml(bikeName)}</div>
-            </div>
-          `;
-        }
-
-        const activityLink = isValidHttpUrl(activityUrl)
-          ? `<a class="featured-activity-link" href="${activityUrl}" target="_blank" rel="noopener noreferrer">View on Strava</a>`
-          : `<div class="featured-activity-link-disabled">No activity link</div>`;
-
-        return `
-          <article class="featured-activity-card">
-            <div class="featured-activity-body">
-              <div class="featured-activity-title">${title}</div>
-              ${caption}
-              ${metricsHtml}
-              ${activityLink}
-            </div>
-          </article>
-        `;
-      }).join("")}
-    </div>
-  `;
-}
-
-function formatSpeed(avgSpeedMph, sportType = "Ride") {
-  if (!avgSpeedMph || avgSpeedMph <= 0) return null;
-  if (sportType === "Run" || sportType === "Walk") {
-    const pace = 60 / avgSpeedMph;
-    const paceMin = Math.floor(pace);
-    const paceSec = Math.round((pace - paceMin) * 60);
-    return `avg ${paceMin}:${String(paceSec).padStart(2, "0")} min/mi pace`;
-  }
-  return `avg ${avgSpeedMph.toFixed(1)} mph`;
 }
 
 function formatDuration(seconds) {
@@ -248,7 +172,7 @@ function trendIndicator(trend) {
 function iconDistance() {
   return `
     <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
     </svg>
   `;
 }
@@ -256,7 +180,7 @@ function iconDistance() {
 function iconElevation() {
   return `
     <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M3 20l9-16 9 16H3z" stroke="currentColor" stroke-width="2" fill="none"/>
+      <path d="M3 20l9-16 9 16H3z" stroke="currentColor" stroke-width="2" fill="none"></path>
     </svg>
   `;
 }
@@ -264,9 +188,9 @@ function iconElevation() {
 function iconRides() {
   return `
     <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="5" cy="17" r="3" stroke="currentColor" stroke-width="2" fill="none"/>
-      <circle cx="19" cy="17" r="3" stroke="currentColor" stroke-width="2" fill="none"/>
-      <path d="M5 17l6-10 4 6h4" stroke="currentColor" stroke-width="2" fill="none"/>
+      <circle cx="5" cy="17" r="3" stroke="currentColor" stroke-width="2" fill="none"></circle>
+      <circle cx="19" cy="17" r="3" stroke="currentColor" stroke-width="2" fill="none"></circle>
+      <path d="M5 17l6-10 4 6h4" stroke="currentColor" stroke-width="2" fill="none"></path>
     </svg>
   `;
 }
@@ -274,8 +198,8 @@ function iconRides() {
 function iconSpeed() {
   return `
     <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none"/>
-      <path d="M12 7v5l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none"></circle>
+      <path d="M12 7v5l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
     </svg>
   `;
 }
@@ -283,8 +207,8 @@ function iconSpeed() {
 function iconTime() {
   return `
     <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none"/>
-      <path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none"></circle>
+      <path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
     </svg>
   `;
 }
@@ -292,8 +216,8 @@ function iconTime() {
 function iconCalendar() {
   return `
     <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="2" fill="none"/>
-      <path d="M8 3v4M16 3v4M4 10h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="2" fill="none"></rect>
+      <path d="M8 3v4M16 3v4M4 10h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
     </svg>
   `;
 }
@@ -301,9 +225,9 @@ function iconCalendar() {
 function iconPercent() {
   return `
     <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M6 18L18 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-      <circle cx="7.5" cy="7.5" r="2.5" stroke="currentColor" stroke-width="2" fill="none"/>
-      <circle cx="16.5" cy="16.5" r="2.5" stroke="currentColor" stroke-width="2" fill="none"/>
+      <path d="M6 18L18 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+      <circle cx="7.5" cy="7.5" r="2.5" stroke="currentColor" stroke-width="2" fill="none"></circle>
+      <circle cx="16.5" cy="16.5" r="2.5" stroke="currentColor" stroke-width="2" fill="none"></circle>
     </svg>
   `;
 }
@@ -311,7 +235,7 @@ function iconPercent() {
 function iconFire() {
   return `
     <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 3c1 3-1 4-1 6 0 1 1 2 2 3 2-1 3-3 3-5 3 2 5 5 5 8a8 8 0 1 1-16 0c0-2 1-4 3-6 0 2 1 3 2 4 1-1 1-2 1-4 0-2 0-4 1-6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M12 3c1 3-1 4-1 6 0 1 1 2 2 3 2-1 3-3 3-5 3 2 5 5 5 8a8 8 0 1 1-16 0c0-2 1-4 3-6 0 2 1 3 2 4 1-1 1-2 1-4 0-2 0-4 1-6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path>
     </svg>
   `;
 }
@@ -319,19 +243,107 @@ function iconFire() {
 function iconTrophy() {
   return `
     <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M8 4h8v3a4 4 0 0 1-8 0V4z" fill="none" stroke="currentColor" stroke-width="2"/>
-      <path d="M6 6H4a2 2 0 0 0 2 2M18 6h2a2 2 0 0 1-2 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-      <path d="M12 11v4M9 20h6M10 15h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <path d="M8 4h8v3a4 4 0 0 1-8 0V4z" fill="none" stroke="currentColor" stroke-width="2"></path>
+      <path d="M6 6H4a2 2 0 0 0 2 2M18 6h2a2 2 0 0 1-2 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+      <path d="M12 11v4M9 20h6M10 15h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
     </svg>
   `;
 }
 
 function showSpinner() {
-  document.getElementById("spinner").style.display = "block";
+  const node = document.getElementById("spinner");
+  if (node) node.style.display = "block";
 }
 
 function hideSpinner() {
-  document.getElementById("spinner").style.display = "none";
+  const node = document.getElementById("spinner");
+  if (node) node.style.display = "none";
+}
+
+function formatShortDate(date) {
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  const yyyy = date.getFullYear();
+  return `${mm}/${dd}/${yyyy}`;
+}
+
+function formatMonthLabel(monthIndex) {
+  return ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][monthIndex];
+}
+
+function getWeekStartMonday(dateStr) {
+  const d = new Date(dateStr);
+  const local = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const day = local.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  local.setDate(local.getDate() + diff);
+  local.setHours(0, 0, 0, 0);
+  return local;
+}
+
+async function loadFeaturedActivities() {
+  try {
+    const res = await fetch("featured-activities.json", { cache: "no-store" });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch (err) {
+    console.warn("Unable to load featured activities config", err);
+    return [];
+  }
+}
+
+function renderFeaturedActivities(items, data) {
+  const container = document.getElementById("featured-activities-content");
+  if (!container) return;
+
+  if (!items.length) {
+    container.innerHTML = `<div class="empty-state">No featured activities configured yet.</div>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="featured-activities-grid">
+      ${items.map(item => {
+        const title = escapeHtml(item.title || "Untitled Activity");
+        const caption = item.caption ? `<div class="featured-activity-caption">${escapeHtml(item.caption)}</div>` : "";
+        const activityUrl = item.activityUrl || "";
+        const activityId = extractStravaActivityId(activityUrl);
+        const activity = findActivityById(data.activities, activityId);
+
+        let metricsHtml = `<div class="featured-activity-link-disabled">Activity not found in dashboard data</div>`;
+
+        if (activity) {
+          const bikeName = getGearName(data.gearDetails, activity.gear_id);
+          metricsHtml = `
+            <div class="featured-activity-metrics">
+              <div class="featured-activity-metric">${iconDistance()} ${comma(miles(activity.distance || 0).toFixed(1))} mi</div>
+              <div class="featured-activity-metric">${iconElevation()} ${comma(feet(activity.total_elevation_gain || 0).toFixed(0))} ft</div>
+              <div class="featured-activity-metric">${iconTime()} ${formatDuration(activity.moving_time || 0)}</div>
+              <div class="featured-activity-metric">${iconCalendar()} ${formatDate(activity.start_date)}</div>
+              <div class="featured-activity-metric">${escapeHtml(activity.sport_type || "-")}</div>
+              <div class="featured-activity-metric">${iconRides()} ${escapeHtml(bikeName)}</div>
+            </div>
+          `;
+        }
+
+        const activityLink = isValidHttpUrl(activityUrl)
+          ? `<a class="featured-activity-link" href="${activityUrl}" target="_blank" rel="noopener noreferrer">View on Strava</a>`
+          : `<div class="featured-activity-link-disabled">No activity link</div>`;
+
+        return `
+          <article class="featured-activity-card">
+            <div class="featured-activity-body">
+              <div class="featured-activity-title">${title}</div>
+              ${caption}
+              ${metricsHtml}
+              ${activityLink}
+            </div>
+          </article>
+        `;
+      }).join("")}
+    </div>
+  `;
 }
 
 function renderPrBackfillAdmin(status) {
@@ -462,27 +474,6 @@ async function stopPrBackfill() {
   }
 }
 
-function getWeekStartMonday(dateStr) {
-  const d = new Date(dateStr);
-  const local = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const day = local.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  local.setDate(local.getDate() + diff);
-  local.setHours(0, 0, 0, 0);
-  return local;
-}
-
-function formatShortDate(date) {
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const dd = String(date.getDate()).padStart(2, "0");
-  const yyyy = date.getFullYear();
-  return `${mm}/${dd}/${yyyy}`;
-}
-
-function formatMonthLabel(monthIndex) {
-  return ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][monthIndex];
-}
-
 const STORAGE_KEYS = {
   selectedTypes: "strava:selectedTypes",
   selectedBikes: "strava:selectedBikes",
@@ -493,7 +484,13 @@ const STORAGE_KEYS = {
   annualExpandedYears: "strava:annualExpandedYears",
   annualBreakdownMode: "strava:annualBreakdownMode",
   expandedBikeYears: "strava:expandedBikeYears",
-  bikeHistoryExpanded: "strava:bikeHistoryExpanded"
+  bikeHistoryExpanded: "strava:bikeHistoryExpanded",
+  globalDateRange: "strava:globalDateRange",
+  globalActivityType: "strava:globalActivityType",
+  globalBike: "strava:globalBike",
+  heroMetricMode: "strava:heroMetricMode",
+  patternMetric: "strava:patternMetric",
+  monthlyTrendMetric: "strava:monthlyTrendMetric"
 };
 
 const EXCLUDED_HIGHEST_ELEVATION_ACTIVITY_ID = "1380665549";
@@ -507,6 +504,8 @@ let annualExpandedYears = new Set(JSON.parse(localStorage.getItem(STORAGE_KEYS.a
 let annualBreakdownMode = localStorage.getItem(STORAGE_KEYS.annualBreakdownMode) || "monthly";
 let expandedBikeYears = new Set(JSON.parse(localStorage.getItem(STORAGE_KEYS.expandedBikeYears) || "[]"));
 let bikeHistoryExpanded = new Set(JSON.parse(localStorage.getItem(STORAGE_KEYS.bikeHistoryExpanded) || "[]"));
+let patternMetric = localStorage.getItem(STORAGE_KEYS.patternMetric) || "distance";
+let monthlyTrendMetric = localStorage.getItem(STORAGE_KEYS.monthlyTrendMetric) || "distance";
 
 function saveSelectedBikes() {
   localStorage.setItem(STORAGE_KEYS.selectedBikes, JSON.stringify(Array.from(selectedBikes.keys())));
@@ -533,8 +532,42 @@ function setAnnualBreakdownMode(mode) {
   localStorage.setItem(STORAGE_KEYS.annualBreakdownMode, annualBreakdownMode);
 }
 
+function setPatternMetric(mode) {
+  patternMetric = mode;
+  localStorage.setItem(STORAGE_KEYS.patternMetric, patternMetric);
+  syncPatternMetricButtons();
+  if (window.__rawDashboardData) {
+    renderAll(window.__rawDashboardData);
+  }
+}
+
+function setMonthlyTrendMetric(mode) {
+  monthlyTrendMetric = mode;
+  localStorage.setItem(STORAGE_KEYS.monthlyTrendMetric, monthlyTrendMetric);
+  syncMonthlyMetricButtons();
+  if (window.__rawDashboardData) {
+    renderAll(window.__rawDashboardData);
+  }
+}
+
+function syncPatternMetricButtons() {
+  document.querySelectorAll("[data-pattern-metric]").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.patternMetric === patternMetric);
+  });
+}
+
+function syncMonthlyMetricButtons() {
+  document.querySelectorAll("[data-monthly-metric]").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.monthlyMetric === monthlyTrendMetric);
+  });
+}
+
 function setLastSyncLabel() {
-  document.getElementById("last-sync").textContent = `Last updated: ${new Date().toLocaleString()}`;
+  const text = `Last updated: ${new Date().toLocaleString()}`;
+  const top = document.getElementById("last-sync");
+  const side = document.getElementById("last-sync-side");
+  if (top) top.textContent = text;
+  if (side) side.textContent = text;
 }
 
 function toggleTheme() {
@@ -696,7 +729,7 @@ function deriveRideInsights(data) {
   const steepestRide = rideActivities
     .filter(a => (a.distance || 0) > 0 && (a.total_elevation_gain || 0) > 0)
     .reduce((best, a) => {
-      const elevationPerMile = feet(a.total_elevation_gain) / miles(a.distance);
+      const elevationPerMile = feet(a.total_elevation_gain) / Math.max(miles(a.distance), 0.01);
       if (!best || elevationPerMile > best.elevation_per_mile) {
         return { ...a, elevation_per_mile: elevationPerMile };
       }
@@ -725,90 +758,529 @@ function deriveRideInsights(data) {
   };
 }
 
+function restoreGlobalFilters() {
+  const dateRange = localStorage.getItem(STORAGE_KEYS.globalDateRange) || "all";
+  const activityType = localStorage.getItem(STORAGE_KEYS.globalActivityType) || "all";
+  const bike = localStorage.getItem(STORAGE_KEYS.globalBike) || "all";
+  const heroMetric = localStorage.getItem(STORAGE_KEYS.heroMetricMode) || "distance";
+
+  const dateRangeNode = document.getElementById("global-date-range");
+  const activityTypeNode = document.getElementById("global-activity-type");
+  const bikeNode = document.getElementById("global-bike");
+  const heroMetricNode = document.getElementById("hero-metric-mode");
+
+  if (dateRangeNode) dateRangeNode.value = dateRange;
+  if (activityTypeNode) activityTypeNode.value = activityType;
+  if (bikeNode) bikeNode.value = bike;
+  if (heroMetricNode) heroMetricNode.value = heroMetric;
+}
+
+function populateGlobalFilters(rawData) {
+  const typeNode = document.getElementById("global-activity-type");
+  const bikeNode = document.getElementById("global-bike");
+  if (!typeNode || !bikeNode) return;
+
+  const currentType = localStorage.getItem(STORAGE_KEYS.globalActivityType) || "all";
+  const currentBike = localStorage.getItem(STORAGE_KEYS.globalBike) || "all";
+
+  const types = Array.from(new Set((rawData.activities || []).map(a => a.sport_type).filter(Boolean))).sort();
+  const bikes = Object.keys(rawData.gearTotals || {}).map(gid => ({
+    gid,
+    name: getGearName(rawData.gearDetails || {}, gid)
+  })).sort((a, b) => a.name.localeCompare(b.name));
+
+  typeNode.innerHTML = `<option value="all">All activity types</option>` +
+    types.map(type => `<option value="${escapeHtml(type)}">${escapeHtml(type)}</option>`).join("");
+
+  bikeNode.innerHTML = `<option value="all">All bikes</option>` +
+    bikes.map(b => `<option value="${escapeHtml(b.gid)}">${escapeHtml(b.name)}</option>`).join("");
+
+  typeNode.value = types.includes(currentType) ? currentType : "all";
+  bikeNode.value = bikes.some(b => b.gid === currentBike) ? currentBike : "all";
+}
+
+function handleGlobalFilterChange() {
+  const dateRange = document.getElementById("global-date-range")?.value || "all";
+  const activityType = document.getElementById("global-activity-type")?.value || "all";
+  const bike = document.getElementById("global-bike")?.value || "all";
+  const heroMetric = document.getElementById("hero-metric-mode")?.value || "distance";
+
+  localStorage.setItem(STORAGE_KEYS.globalDateRange, dateRange);
+  localStorage.setItem(STORAGE_KEYS.globalActivityType, activityType);
+  localStorage.setItem(STORAGE_KEYS.globalBike, bike);
+  localStorage.setItem(STORAGE_KEYS.heroMetricMode, heroMetric);
+
+  if (window.__rawDashboardData) {
+    renderAll(window.__rawDashboardData);
+  }
+}
+
+function applyGlobalFilters(rawData) {
+  const dateRange = localStorage.getItem(STORAGE_KEYS.globalDateRange) || "all";
+  const activityType = localStorage.getItem(STORAGE_KEYS.globalActivityType) || "all";
+  const bike = localStorage.getItem(STORAGE_KEYS.globalBike) || "all";
+
+  let activities = [...(rawData.activities || [])];
+
+  if (dateRange !== "all") {
+    const days = Number(dateRange);
+    const cutoff = Date.now() - (days * 86400000);
+    activities = activities.filter(a => new Date(a.start_date).getTime() >= cutoff);
+  }
+
+  if (activityType !== "all") {
+    activities = activities.filter(a => a.sport_type === activityType);
+  }
+
+  if (bike !== "all") {
+    activities = activities.filter(a => a.gear_id === bike);
+  }
+
+  const cloned = {
+    ...rawData,
+    activities
+  };
+
+  cloned.activityCounts = buildActivityCountsFromActivities(activities);
+  cloned.gearTotals = buildGearTotalsFromActivities(activities, rawData.segmentData || {});
+  cloned.bikeYearStats = buildBikeYearStatsFromActivities(activities, rawData.segmentData || {});
+  cloned.gearDetails = rawData.gearDetails || {};
+  cloned.annualStats = buildAnnualStatsSimple(activities);
+
+  return cloned;
+}
+
+function buildActivityCountsFromActivities(activities) {
+  const counts = {};
+  (activities || []).forEach(a => {
+    if (!a?.sport_type) return;
+    counts[a.sport_type] = (counts[a.sport_type] || 0) + 1;
+  });
+  return counts;
+}
+
+function buildGearTotalsFromActivities(activities, segmentData) {
+  const gearTotals = {};
+  (activities || []).forEach(a => {
+    if (!a?.gear_id) return;
+    const prCount = segmentData && a.id in segmentData
+      ? (segmentData[a.id] || []).filter(e => e.pr_rank === 1).length
+      : 0;
+
+    if (!gearTotals[a.gear_id]) {
+      gearTotals[a.gear_id] = { distance: 0, elevation: 0, count: 0, moving_time: 0, pr_count: 0 };
+    }
+
+    gearTotals[a.gear_id].distance += a.distance || 0;
+    gearTotals[a.gear_id].elevation += a.total_elevation_gain || 0;
+    gearTotals[a.gear_id].count += 1;
+    gearTotals[a.gear_id].moving_time += a.moving_time || 0;
+    gearTotals[a.gear_id].pr_count += prCount;
+  });
+
+  Object.keys(gearTotals).forEach(gid => {
+    const gt = gearTotals[gid];
+    if (gt.moving_time > 0 && gt.distance > 0) {
+      const distMiles = gt.distance / 1609.34;
+      const timeHours = gt.moving_time / 3600;
+      gt.avg_speed_mph = distMiles / timeHours;
+      gt.avg_pace_min_per_mi = (gt.moving_time / 60) / distMiles;
+    }
+  });
+
+  return gearTotals;
+}
+
+function buildBikeYearStatsFromActivities(activities, segmentData) {
+  const bikeYearStats = {};
+
+  (activities || []).forEach(a => {
+    if (!a?.gear_id) return;
+    const year = new Date(a.start_date).getFullYear();
+    const prCount = segmentData && a.id in segmentData
+      ? (segmentData[a.id] || []).filter(e => e.pr_rank === 1).length
+      : 0;
+    const weekStart = getWeekStartMonday(a.start_date);
+    const weekKey = String(getWeekNumber(weekStart));
+
+    if (!bikeYearStats[a.gear_id]) bikeYearStats[a.gear_id] = {};
+    if (!bikeYearStats[a.gear_id][year]) {
+      bikeYearStats[a.gear_id][year] = {
+        distance: 0,
+        elevation: 0,
+        count: 0,
+        moving_time: 0,
+        pr_count: 0,
+        weeks: {}
+      };
+    }
+
+    const y = bikeYearStats[a.gear_id][year];
+    y.distance += a.distance || 0;
+    y.elevation += a.total_elevation_gain || 0;
+    y.count += 1;
+    y.moving_time += a.moving_time || 0;
+    y.pr_count += prCount;
+
+    if (!y.weeks[weekKey]) {
+      y.weeks[weekKey] = {
+        distance: 0,
+        elevation: 0,
+        count: 0,
+        moving_time: 0,
+        trend: 0,
+        week_start: weekStart.toISOString()
+      };
+    }
+
+    y.weeks[weekKey].distance += a.distance || 0;
+    y.weeks[weekKey].elevation += a.total_elevation_gain || 0;
+    y.weeks[weekKey].count += 1;
+    y.weeks[weekKey].moving_time += a.moving_time || 0;
+  });
+
+  Object.keys(bikeYearStats).forEach(gid => {
+    Object.keys(bikeYearStats[gid]).forEach(year => {
+      const y = bikeYearStats[gid][year];
+      if (y.moving_time > 0 && y.distance > 0) {
+        const distMiles = y.distance / 1609.34;
+        const timeHours = y.moving_time / 3600;
+        y.avg_speed_mph = distMiles / timeHours;
+      }
+
+      const weekNums = Object.keys(y.weeks).map(Number).sort((a, b) => a - b);
+      weekNums.forEach((wk, idx) => {
+        const curr = y.weeks[String(wk)];
+        const prev = idx > 0 ? y.weeks[String(weekNums[idx - 1])] : null;
+        curr.trend = prev && prev.distance > 0 ? (curr.distance - prev.distance) / prev.distance : 0;
+      });
+    });
+  });
+
+  return bikeYearStats;
+}
+
+function buildAnnualStatsSimple(activities) {
+  const annualStats = {};
+  (activities || []).forEach(a => {
+    const year = new Date(a.start_date).getFullYear();
+    if (!annualStats[year]) annualStats[year] = { distance: 0, elevation: 0, count: 0 };
+    annualStats[year].distance += a.distance || 0;
+    annualStats[year].elevation += a.total_elevation_gain || 0;
+    annualStats[year].count += 1;
+  });
+  return annualStats;
+}
+
+function getWeekNumber(d) {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+}
+
+function renderHero(data, rideInsights) {
+  const heroTitle = document.getElementById("hero-title");
+  const heroInsight = document.getElementById("hero-insight");
+  const heroPeriodStats = document.getElementById("hero-period-stats");
+  if (!heroTitle || !heroInsight || !heroPeriodStats) return;
+
+  const now = new Date();
+  const last30Cutoff = now.getTime() - (30 * 86400000);
+  const prev30Cutoff = now.getTime() - (60 * 86400000);
+
+  const last30 = data.activities.filter(a => new Date(a.start_date).getTime() >= last30Cutoff);
+  const prev30 = data.activities.filter(a => {
+    const ts = new Date(a.start_date).getTime();
+    return ts >= prev30Cutoff && ts < last30Cutoff;
+  });
+
+  const currentDistance = last30.reduce((sum, a) => sum + (a.distance || 0), 0);
+  const previousDistance = prev30.reduce((sum, a) => sum + (a.distance || 0), 0);
+  const currentTime = last30.reduce((sum, a) => sum + (a.moving_time || 0), 0);
+  const previousTime = prev30.reduce((sum, a) => sum + (a.moving_time || 0), 0);
+  const currentElevation = last30.reduce((sum, a) => sum + (a.total_elevation_gain || 0), 0);
+  const previousElevation = prev30.reduce((sum, a) => sum + (a.total_elevation_gain || 0), 0);
+
+  const distanceDelta = previousDistance > 0 ? ((currentDistance - previousDistance) / previousDistance) * 100 : 0;
+  const timeDelta = previousTime > 0 ? ((currentTime - previousTime) / previousTime) * 100 : 0;
+  const elevationDelta = previousElevation > 0 ? ((currentElevation - previousElevation) / previousElevation) * 100 : 0;
+
+  const weekdayStats = buildWeekdayBreakdown(data.activities, "distance");
+  const topWeekday = weekdayStats.reduce((best, item) => (!best || item.value > best.value ? item : best), null);
+
+  const topBike = rideInsights?.highlights?.mostUsedByMiles;
+  const heroMetricMode = localStorage.getItem(STORAGE_KEYS.heroMetricMode) || "distance";
+
+  heroTitle.textContent = `${comma(data.activities.length)} filtered activities across ${Object.keys(data.gearTotals || {}).length} bike profiles`;
+
+  let insightSentence = "Training data is ready to explore.";
+  if (heroMetricMode === "distance" && topWeekday && topBike) {
+    insightSentence = `${topWeekday.label} is your biggest mileage day, and ${topBike.name} leads your ride volume with ${comma(miles(topBike.distance).toFixed(1))} mi.`;
+  } else if (heroMetricMode === "moving_time" && rideInsights?.highlights?.mostTotalTimeBike) {
+    const bike = rideInsights.highlights.mostTotalTimeBike;
+    insightSentence = `${bike.name} has the highest total activity time at ${formatDuration(bike.moving_time)} in the current view.`;
+  } else if (heroMetricMode === "elevation" && rideInsights?.highlights?.climbingBike) {
+    const bike = rideInsights.highlights.climbingBike;
+    insightSentence = `${bike.name} leads climbing intensity at ${comma(feet(bike.avg_elevation_per_ride).toFixed(0))} ft per ride on average.`;
+  } else if (heroMetricMode === "count" && rideInsights?.highlights?.mostUsedByCount) {
+    const bike = rideInsights.highlights.mostUsedByCount;
+    insightSentence = `${bike.name} has the highest ride count with ${comma(bike.count)} activities in the current view.`;
+  }
+
+  heroInsight.textContent = insightSentence;
+
+  heroPeriodStats.innerHTML = `
+    <div class="hero-stat">
+      <div class="hero-stat-label">Last 30 days</div>
+      <div class="hero-stat-value">${comma(miles(currentDistance).toFixed(1))} mi</div>
+      <div class="hero-stat-delta ${distanceDelta >= 0 ? "positive" : "negative"}">${distanceDelta >= 0 ? "+" : ""}${distanceDelta.toFixed(0)}% vs prior 30d</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-stat-label">Moving time</div>
+      <div class="hero-stat-value">${formatDuration(currentTime)}</div>
+      <div class="hero-stat-delta ${timeDelta >= 0 ? "positive" : "negative"}">${timeDelta >= 0 ? "+" : ""}${timeDelta.toFixed(0)}%</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-stat-label">Elevation</div>
+      <div class="hero-stat-value">${comma(feet(currentElevation).toFixed(0))} ft</div>
+      <div class="hero-stat-delta ${elevationDelta >= 0 ? "positive" : "negative"}">${elevationDelta >= 0 ? "+" : ""}${elevationDelta.toFixed(0)}%</div>
+    </div>
+  `;
+}
+
 function renderKpiSummary(data) {
   const kpi = document.getElementById("kpi-summary");
+  if (!kpi) return;
+
   const totalActivities = data.activities.length;
   const totalDistanceMeters = data.activities.reduce((sum, a) => sum + (a.distance || 0), 0);
   const totalElevationMeters = data.activities.reduce((sum, a) => sum + (a.total_elevation_gain || 0), 0);
   const totalMovingTime = data.activities.reduce((sum, a) => sum + (a.moving_time || 0), 0);
-  const activeBikes = Object.values(data.gearDetails || {}).filter(gear => gear && !gear.retired).length;
+  const activeBikes = Object.keys(data.gearTotals || {}).length;
 
   kpi.innerHTML = `
-    <div class="kpi-card">
-      <div class="kpi-label">Total Activities</div>
+    <div class="kpi-card neon-distance">
+      <div class="kpi-label">Filtered Activities</div>
       <div class="kpi-value">${comma(totalActivities)}</div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Total Distance</div>
+    <div class="kpi-card neon-distance">
+      <div class="kpi-label">Distance</div>
       <div class="kpi-value">${comma(miles(totalDistanceMeters).toFixed(1))} mi</div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Total Elevation</div>
-      <div class="kpi-value">${comma(feet(totalElevationMeters).toFixed(0))} ft</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Total Activity Time</div>
+    <div class="kpi-card neon-time">
+      <div class="kpi-label">Moving Time</div>
       <div class="kpi-value">${formatDuration(totalMovingTime)}</div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Active Bikes</div>
+    <div class="kpi-card neon-elevation">
+      <div class="kpi-label">Elevation</div>
+      <div class="kpi-value">${comma(feet(totalElevationMeters).toFixed(0))} ft</div>
+    </div>
+    <div class="kpi-card neon-accent">
+      <div class="kpi-label">Bikes in View</div>
       <div class="kpi-value">${comma(activeBikes)}</div>
     </div>
   `;
 }
 
 function renderHighlights(rideInsights, gearDetails = {}) {
-  const container = document.getElementById("highlights-content");
+  const container = document.getElementById("records-grid");
   if (!container) return;
 
   const h = rideInsights.highlights;
 
   const bikeCard = (label, bike, value, subtext = "") => `
-    <div class="highlight-card">
-      <div class="highlight-label">${label}</div>
-      <div class="highlight-bike">${bike ? escapeHtml(bike.name) : "-"}</div>
-      <div class="highlight-value">${value || "-"}</div>
-      ${subtext ? `<div class="highlight-subtext">${escapeHtml(subtext)}</div>` : ""}
+    <div class="record-card">
+      <div class="record-label">${label}</div>
+      <div class="record-title">${bike ? escapeHtml(bike.name) : "-"}</div>
+      <div class="record-value">${value || "-"}</div>
+      ${subtext ? `<div class="record-subtext">${escapeHtml(subtext)}</div>` : ""}
     </div>
   `;
 
   const activityCard = (label, activity, value, extraSubtext = "") => `
-    <div class="highlight-card">
-      <div class="highlight-label">${label}</div>
-      ${activity ? renderActivityName(activity, gearDetails) : `<div class="highlight-bike">-</div>`}
-      <div class="highlight-value">${value || "-"}</div>
-      ${extraSubtext ? `<div class="highlight-subtext">${escapeHtml(extraSubtext)}</div>` : ""}
+    <div class="record-card">
+      <div class="record-label">${label}</div>
+      ${activity ? renderActivityName(activity, gearDetails) : `<div class="record-title">-</div>`}
+      <div class="record-value">${value || "-"}</div>
+      ${extraSubtext ? `<div class="record-subtext">${escapeHtml(extraSubtext)}</div>` : ""}
     </div>
   `;
 
   container.innerHTML = `
-    <div class="highlights-grid">
-      ${bikeCard("Most-used bike by miles", h.mostUsedByMiles, h.mostUsedByMiles ? `${comma(miles(h.mostUsedByMiles.distance).toFixed(1))} mi` : "-")}
-      ${bikeCard("Most-used bike by ride count", h.mostUsedByCount, h.mostUsedByCount ? `${comma(h.mostUsedByCount.count)} rides` : "-")}
-      ${bikeCard("Fastest bike", h.fastestBike, h.fastestBike && h.fastestBike.avg_speed_mph ? `${h.fastestBike.avg_speed_mph.toFixed(1)} mph` : "-")}
-      ${bikeCard("Highest elevation per ride", h.climbingBike, h.climbingBike ? `${comma(feet(h.climbingBike.avg_elevation_per_ride).toFixed(0))} ft/ride` : "-")}
-      ${bikeCard("Longest average ride", h.longestAverageRideBike, h.longestAverageRideBike ? `${comma(miles(h.longestAverageRideBike.avg_distance_per_ride).toFixed(1))} mi/ride` : "-")}
-      ${bikeCard("Most total activity time", h.mostTotalTimeBike, h.mostTotalTimeBike ? formatDuration(h.mostTotalTimeBike.moving_time) : "-")}
-      ${bikeCard("Most recently ridden", h.mostRecentBike, h.mostRecentBike ? formatDate(h.mostRecentBike.lastRide) : "-")}
-      ${bikeCard("Biggest mileage week", h.biggestMileageWeekBike, h.biggestMileageWeekBike ? `${comma(miles(h.biggestMileageWeekBike.distance).toFixed(1))} mi` : "-", h.biggestMileageWeekBike ? `Week of ${h.biggestMileageWeekBike.label}` : "")}
-      ${bikeCard("Biggest climbing week", h.biggestClimbingWeekBike, h.biggestClimbingWeekBike ? `${comma(feet(h.biggestClimbingWeekBike.elevation).toFixed(0))} ft` : "-", h.biggestClimbingWeekBike ? `Week of ${h.biggestClimbingWeekBike.label}` : "")}
-      ${bikeCard("Longest-used bike", h.longestUsedBike, h.longestUsedBike ? formatYearsBetween(h.longestUsedBike.firstRide, h.longestUsedBike.lastRide) : "-", h.longestUsedBike ? `${formatDate(h.longestUsedBike.firstRide)} to ${formatDate(h.longestUsedBike.lastRide)}` : "")}
-      ${activityCard("Longest single activity", h.longestActivity, h.longestActivity ? `${comma(miles(h.longestActivity.distance || 0).toFixed(1))} mi` : "-")}
-      ${activityCard("Most elevation in a single activity", h.highestElevationActivity, h.highestElevationActivity ? `${comma(feet(h.highestElevationActivity.total_elevation_gain || 0).toFixed(0))} ft` : "-")}
-      ${activityCard("Longest activity time", h.longestMovingTimeActivity, h.longestMovingTimeActivity ? formatDuration(h.longestMovingTimeActivity.moving_time || 0) : "-")}
-      ${activityCard("Fastest ride by avg speed", h.fastestRide, h.fastestRide ? `${h.fastestRide.avg_speed_mph.toFixed(1)} mph` : "-")}
-      ${activityCard("Most elevation per mile", h.steepestRide, h.steepestRide ? `${comma((h.steepestRide.elevation_per_mile || 0).toFixed(0))} ft/mi` : "-")}
+    ${bikeCard("Most-used bike by miles", h.mostUsedByMiles, h.mostUsedByMiles ? `${comma(miles(h.mostUsedByMiles.distance).toFixed(1))} mi` : "-")}
+    ${bikeCard("Biggest mileage week", h.biggestMileageWeekBike, h.biggestMileageWeekBike ? `${comma(miles(h.biggestMileageWeekBike.distance).toFixed(1))} mi` : "-", h.biggestMileageWeekBike ? h.biggestMileageWeekBike.label : "")}
+    ${bikeCard("Most total activity time", h.mostTotalTimeBike, h.mostTotalTimeBike ? formatDuration(h.mostTotalTimeBike.moving_time) : "-")}
+    ${bikeCard("Longest-used bike", h.longestUsedBike, h.longestUsedBike ? formatYearsBetween(h.longestUsedBike.firstRide, h.longestUsedBike.lastRide) : "-", h.longestUsedBike ? `${formatDate(h.longestUsedBike.firstRide)} ? ${formatDate(h.longestUsedBike.lastRide)}` : "")}
+    ${activityCard("Longest single activity", h.longestActivity, h.longestActivity ? `${comma(miles(h.longestActivity.distance || 0).toFixed(1))} mi` : "-")}
+    ${activityCard("Most elevation in a single activity", h.highestElevationActivity, h.highestElevationActivity ? `${comma(feet(h.highestElevationActivity.total_elevation_gain || 0).toFixed(0))} ft` : "-")}
+    ${activityCard("Longest activity time", h.longestMovingTimeActivity, h.longestMovingTimeActivity ? formatDuration(h.longestMovingTimeActivity.moving_time || 0) : "-")}
+    ${activityCard("Fastest ride by avg speed", h.fastestRide, h.fastestRide ? `${h.fastestRide.avg_speed_mph.toFixed(1)} mph` : "-")}
+  `;
+}
+
+function buildWeekdayBreakdown(activities, metric) {
+  const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const map = labels.map(label => ({ label, value: 0 }));
+
+  (activities || []).forEach(a => {
+    const date = new Date(a.start_date);
+    const weekday = date.getDay();
+    const index = weekday === 0 ? 6 : weekday - 1;
+    if (metric === "distance") map[index].value += miles(a.distance || 0);
+    else if (metric === "moving_time") map[index].value += (a.moving_time || 0) / 3600;
+    else map[index].value += 1;
+  });
+
+  return map;
+}
+
+function buildTimeOfDayBreakdown(activities, metric) {
+  const groups = [
+    { label: "Early AM", start: 0, end: 6, value: 0 },
+    { label: "Morning", start: 6, end: 12, value: 0 },
+    { label: "Afternoon", start: 12, end: 17, value: 0 },
+    { label: "Evening", start: 17, end: 21, value: 0 },
+    { label: "Night", start: 21, end: 24, value: 0 }
+  ];
+
+  (activities || []).forEach(a => {
+    const hour = new Date(a.start_date).getHours();
+    const bucket = groups.find(g => hour >= g.start && hour < g.end);
+    if (!bucket) return;
+    if (metric === "distance") bucket.value += miles(a.distance || 0);
+    else if (metric === "moving_time") bucket.value += (a.moving_time || 0) / 3600;
+    else bucket.value += 1;
+  });
+
+  return groups;
+}
+
+function buildMonthlyTrend(activities, metric) {
+  const months = {};
+  (activities || []).forEach(a => {
+    const d = new Date(a.start_date);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    if (!months[key]) {
+      months[key] = {
+        label: `${formatMonthLabel(d.getMonth())} ${d.getFullYear()}`,
+        sortKey: new Date(d.getFullYear(), d.getMonth(), 1).getTime(),
+        value: 0
+      };
+    }
+
+    if (metric === "distance") months[key].value += miles(a.distance || 0);
+    else if (metric === "moving_time") months[key].value += (a.moving_time || 0) / 3600;
+    else if (metric === "elevation") months[key].value += feet(a.total_elevation_gain || 0);
+    else months[key].value += 1;
+  });
+
+  return Object.values(months).sort((a, b) => a.sortKey - b.sortKey).slice(-12);
+}
+
+function renderBarChart(containerId, items, formatter) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  if (!items.length) {
+    container.innerHTML = `<div class="empty-state">No data available.</div>`;
+    return;
+  }
+
+  const max = Math.max(...items.map(i => i.value), 1);
+
+  container.innerHTML = items.map(item => `
+    <div class="bar-row">
+      <div class="bar-label">${escapeHtml(item.label)}</div>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:${(item.value / max) * 100}%"></div>
+      </div>
+      <div class="bar-value">${formatter(item.value)}</div>
+    </div>
+  `).join("");
+}
+
+function renderTimelineBars(containerId, items, formatter, toneClass = "") {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  if (!items.length) {
+    container.innerHTML = `<div class="empty-state">No timeline data available.</div>`;
+    return;
+  }
+
+  const max = Math.max(...items.map(i => i.value), 1);
+
+  container.innerHTML = `
+    <div class="timeline-bars-wrap ${toneClass}">
+      ${items.map(item => `
+        <div class="timeline-bar-col">
+          <div class="timeline-bar-value">${formatter(item.value)}</div>
+          <div class="timeline-bar-track">
+            <div class="timeline-bar-fill" style="height:${(item.value / max) * 100}%"></div>
+          </div>
+          <div class="timeline-bar-label">${escapeHtml(item.label)}</div>
+        </div>
+      `).join("")}
     </div>
   `;
 }
 
-function renderActivityCounts(counts) {
-  let html = `<div class="metric-row">`;
-  for (const type of Object.keys(counts)) {
-    html += `<div class="metric">${type}: ${comma(counts[type])}</div>`;
+function renderActivityTypeShare(counts) {
+  const container = document.getElementById("activity-type-share");
+  if (!container) return;
+  const entries = Object.entries(counts || {});
+  if (!entries.length) {
+    container.innerHTML = `<div class="empty-state">No activity breakdown available.</div>`;
+    return;
   }
-  html += `</div>`;
-  document.getElementById("activity-counts-content").innerHTML = html;
+
+  const total = entries.reduce((sum, [, count]) => sum + count, 0);
+
+  container.innerHTML = entries
+    .sort((a, b) => b[1] - a[1])
+    .map(([type, count]) => {
+      const pct = total > 0 ? (count / total) * 100 : 0;
+      return `
+        <div class="stack-list-row">
+          <div class="stack-list-header">
+            <span>${escapeHtml(type)}</span>
+            <span>${comma(count)} • ${pct.toFixed(1)}%</span>
+          </div>
+          <div class="stack-list-track">
+            <div class="stack-list-fill" style="width:${pct}%"></div>
+          </div>
+        </div>
+      `;
+    }).join("");
+}
+
+function renderTrainingPatterns(data) {
+  const weekday = buildWeekdayBreakdown(data.activities, patternMetric);
+  const timeOfDay = buildTimeOfDayBreakdown(data.activities, patternMetric);
+  const monthly = buildMonthlyTrend(data.activities, monthlyTrendMetric);
+
+  const patternFormatter = value => {
+    if (patternMetric === "distance") return `${value.toFixed(1)} mi`;
+    if (patternMetric === "moving_time") return `${value.toFixed(1)} h`;
+    return comma(value);
+  };
+
+  const monthlyFormatter = value => {
+    if (monthlyTrendMetric === "distance") return `${value.toFixed(1)} mi`;
+    if (monthlyTrendMetric === "moving_time") return `${value.toFixed(1)} h`;
+    if (monthlyTrendMetric === "elevation") return `${comma(value.toFixed(0))} ft`;
+    return comma(value);
+  };
+
+  const toneClass = monthlyTrendMetric === "elevation"
+    ? "tone-elevation"
+    : monthlyTrendMetric === "moving_time"
+      ? "tone-time"
+      : "tone-distance";
+
+  renderBarChart("weekday-chart", weekday, patternFormatter);
+  renderBarChart("timeofday-chart", timeOfDay, patternFormatter);
+  renderTimelineBars("monthly-trend-chart", monthly, monthlyFormatter, toneClass);
 }
 
 function buildAnnualBreakdowns(data) {
@@ -895,6 +1367,39 @@ function buildAnnualBreakdowns(data) {
   return { annual, totalDistance, totalElevation, totalCount, totalMovingTime };
 }
 
+function renderAnnualSummaryStrip(annual) {
+  const container = document.getElementById("annual-summary-strip");
+  if (!container) return;
+
+  const rows = Object.keys(annual).sort((a, b) => b - a).map(year => ({
+    year,
+    miles: miles(annual[year].distance),
+    activities: annual[year].count
+  }));
+
+  if (!rows.length) {
+    container.innerHTML = "";
+    return;
+  }
+
+  const maxMiles = Math.max(...rows.map(r => r.miles), 1);
+
+  container.innerHTML = `
+    <div class="annual-strip-chart">
+      ${rows.map(row => `
+        <div class="annual-strip-col">
+          <div class="annual-strip-top">${row.miles.toFixed(0)} mi</div>
+          <div class="annual-strip-track">
+            <div class="annual-strip-fill" style="height:${(row.miles / maxMiles) * 100}%"></div>
+          </div>
+          <div class="annual-strip-label">${row.year}</div>
+          <div class="annual-strip-sub">${comma(row.activities)} acts</div>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
 function renderAnnualBreakdownItems(items) {
   const sorted = items.sort((a, b) => b.sortDate - a.sortDate);
   if (!sorted.length) return `<div class="annual-breakdown-empty">No data</div>`;
@@ -927,6 +1432,8 @@ function toggleAnnualYear(year) {
 function updateAnnualStatsTable(data) {
   const { annual, totalDistance, totalElevation, totalCount, totalMovingTime } = buildAnnualBreakdowns(data);
   const years = Object.keys(annual).sort((a, b) => b - a);
+
+  renderAnnualSummaryStrip(annual);
 
   let html = `
     <div class="annual-breakdown-toolbar">
@@ -1006,6 +1513,7 @@ function updateAnnualStatsTable(data) {
 function renderAnnualStats(data) {
   window.__annualStatsData = data;
   const container = document.getElementById("activity-type-checkboxes");
+  if (!container) return;
   container.innerHTML = "";
 
   const types = Object.keys(data.activityCounts || {});
@@ -1075,6 +1583,7 @@ function clearBikeComparison() {
 
 function updateComparisonDisplay() {
   const comparisonSection = document.getElementById("bike-comparison-section");
+  if (!comparisonSection) return;
   if (selectedBikes.size === 0) {
     comparisonSection.style.display = "none";
     return;
@@ -1122,6 +1631,12 @@ function renderBikeComparison() {
   });
   html += `</tr>`;
 
+  html += `<tr><td><strong>${iconTime()} Time</strong></td>`;
+  bikeArray.forEach(bike => {
+    html += `<td>${formatDuration(bike.data.moving_time || 0)}</td>`;
+  });
+  html += `</tr>`;
+
   html += `<tr><td><strong>${iconTrophy()} PRs</strong></td>`;
   bikeArray.forEach(bike => {
     html += `<td>${comma(bike.data.pr_count || 0)}</td>`;
@@ -1139,6 +1654,7 @@ function renderBikeComparison() {
           <div class="metric">${iconDistance()} ${comma(miles(bike.data.distance).toFixed(1))} mi</div>
           <div class="metric">${iconElevation()} ${comma(feet(bike.data.elevation).toFixed(0))} ft</div>
           <div class="metric">${iconRides()} ${comma(bike.data.count)} Activities</div>
+          <div class="metric">${iconTime()} ${formatDuration(bike.data.moving_time || 0)}</div>
           <div class="metric">${iconTrophy()} ${comma(bike.data.pr_count || 0)} PRs</div>
         </div>
       </div>
@@ -1175,6 +1691,17 @@ function toggleBikeYear(id) {
   updateBikeFilters();
 }
 
+function formatSpeed(avgSpeedMph, sportType = "Ride") {
+  if (!avgSpeedMph || avgSpeedMph <= 0) return null;
+  if (sportType === "Run" || sportType === "Walk") {
+    const pace = 60 / avgSpeedMph;
+    const paceMin = Math.floor(pace);
+    const paceSec = Math.round((pace - paceMin) * 60);
+    return `avg ${paceMin}:${String(paceSec).padStart(2, "0")} min/mi pace`;
+  }
+  return `avg ${avgSpeedMph.toFixed(1)} mph`;
+}
+
 function sortBikeRows(rows, sortValue) {
   const [field, direction] = sortValue.split("-");
   const dir = direction === "asc" ? 1 : -1;
@@ -1207,8 +1734,8 @@ function restoreBikeFilterInputs() {
   const bikeSearch = localStorage.getItem(STORAGE_KEYS.bikeSearch);
   const bikeSort = localStorage.getItem(STORAGE_KEYS.bikeSort);
 
-  if (bikeSearch !== null) document.getElementById("bike-search").value = bikeSearch;
-  if (bikeSort) document.getElementById("bike-sort").value = bikeSort;
+  if (bikeSearch !== null && document.getElementById("bike-search")) document.getElementById("bike-search").value = bikeSearch;
+  if (bikeSort && document.getElementById("bike-sort")) document.getElementById("bike-sort").value = bikeSort;
 }
 
 function renderBikeRows(rows, rideInsights) {
@@ -1231,14 +1758,14 @@ function renderBikeRows(rows, rideInsights) {
     const mostActiveWeek = insights.mostActiveWeek;
 
     let card = `
-      <div class="card bike-card-summary">
+      <div class="card bike-card-summary glass-card">
         <div class="accent-bar"></div>
         <div class="card-header bike-card-header">
           <div class="bike-header-content">
             <svg class="icon-lg" viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="5" cy="17" r="3" stroke="currentColor" stroke-width="2" fill="none"/>
-              <circle cx="19" cy="17" r="3" stroke="currentColor" stroke-width="2" fill="none"/>
-              <path d="M5 17l6-10 4 6h4" stroke="currentColor" stroke-width="2" fill="none"/>
+              <circle cx="5" cy="17" r="3" stroke="currentColor" stroke-width="2" fill="none"></circle>
+              <circle cx="19" cy="17" r="3" stroke="currentColor" stroke-width="2" fill="none"></circle>
+              <path d="M5 17l6-10 4 6h4" stroke="currentColor" stroke-width="2" fill="none"></path>
             </svg>
             <span>${escapeHtml(row.name)}</span>
           </div>
@@ -1422,10 +1949,20 @@ function renderBikeStats(bikeYearStats, gearTotals, gearDetails, rideInsights) {
   updateComparisonDisplay();
 }
 
-async function renderAll(data) {
+async function renderAll(rawData) {
+  window.__rawDashboardData = rawData;
+  populateGlobalFilters(rawData);
+  restoreGlobalFilters();
+  syncPatternMetricButtons();
+  syncMonthlyMetricButtons();
+
+  const data = applyGlobalFilters(rawData);
   const rideInsights = deriveRideInsights(data);
+
+  renderHero(data, rideInsights);
   renderKpiSummary(data);
-  renderActivityCounts(data.activityCounts || {});
+  renderTrainingPatterns(data);
+  renderActivityTypeShare(data.activityCounts || {});
   renderAnnualStats(data);
   renderHighlights(rideInsights, data.gearDetails || {});
   renderBikeStats(data.bikeYearStats || {}, data.gearTotals || {}, data.gearDetails || {}, rideInsights);
@@ -1438,12 +1975,15 @@ async function renderAll(data) {
   }
 
   const featuredActivities = await loadFeaturedActivities();
-  renderFeaturedActivities(featuredActivities, data);
+  renderFeaturedActivities(featuredActivities, rawData);
 }
 
 window.onload = async () => {
   applyThemePreference();
   restoreBikeFilterInputs();
+  restoreGlobalFilters();
+  syncPatternMetricButtons();
+  syncMonthlyMetricButtons();
 
   const statusDiv = document.getElementById("status");
   statusDiv.innerHTML = "Loading dashboard…";
