@@ -291,6 +291,33 @@ body {
   margin: 0;
 }
 
+.menu-trigger-icon-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.menu-status-badge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border: 2px solid var(--surface);
+  background: var(--warning);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.08);
+}
+
+.menu-status-badge.running {
+  background: var(--warning);
+}
+
+.menu-status-badge.complete {
+  background: var(--success);
+}
+
 .secondary-trigger {
   background: var(--surface);
   color: var(--accent);
@@ -303,11 +330,12 @@ body {
   right: 0;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 10px;
   box-shadow: var(--shadow);
-  min-width: 240px;
+  min-width: 300px;
   display: none;
   z-index: 1000;
+  overflow: hidden;
 }
 
 .dropdown-menu.open {
@@ -330,6 +358,89 @@ body {
 
 .dropdown-item:hover {
   background: var(--surface-muted);
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+.dropdown-admin-panel {
+  padding: 12px 14px 14px;
+  background: var(--surface-muted);
+}
+
+.dropdown-admin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.dropdown-admin-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.dropdown-admin-stop {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--danger);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dropdown-admin-stop:hover:not(:disabled) {
+  border-color: var(--danger);
+  background: rgba(194, 59, 59, 0.06);
+}
+
+.dropdown-admin-stop:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dropdown-admin-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dropdown-admin-status-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.dropdown-admin-label {
+  color: var(--text-muted);
+}
+
+.dropdown-admin-value {
+  color: var(--text);
+  font-weight: 600;
+  text-align: right;
+}
+
+.dropdown-admin-note {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.dropdown-admin-empty {
+  font-size: 13px;
+  color: var(--text-muted);
 }
 
 #annual-card {
@@ -1075,8 +1186,17 @@ body {
   }
 
   .dropdown-menu {
-    min-width: 220px;
+    min-width: 260px;
     position: fixed;
     right: 16px;
+  }
+
+  .dropdown-admin-status-row {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .dropdown-admin-value {
+    text-align: left;
   }
 }
