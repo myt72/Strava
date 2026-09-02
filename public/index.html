@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Strava Dashboard</title>
+  <title>Mark YT Strava Dashboard</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div id="main">
     <div class="header-top">
-      <h1>Strava Dashboard</h1>
+      <h1>Mark YT Strava Dashboard</h1>
       <div class="utility-actions">
         <button id="theme-toggle" class="menu-trigger secondary-trigger" title="Toggle theme" onclick="toggleTheme()">
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
@@ -20,12 +20,16 @@
 
         <div class="advanced-actions-menu">
           <button id="advanced-menu-trigger" class="menu-trigger" onclick="toggleAdvancedMenu()" title="Advanced Actions">
-            <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-              <circle cx="6" cy="12" r="2" fill="currentColor"/>
-              <circle cx="12" cy="12" r="2" fill="currentColor"/>
-              <circle cx="18" cy="12" r="2" fill="currentColor"/>
-            </svg>
+            <span class="menu-trigger-icon-wrap">
+              <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+                <circle cx="6" cy="12" r="2" fill="currentColor"/>
+                <circle cx="12" cy="12" r="2" fill="currentColor"/>
+                <circle cx="18" cy="12" r="2" fill="currentColor"/>
+              </svg>
+              <span id="pr-backfill-menu-badge" class="menu-status-badge" style="display:none;"></span>
+            </span>
           </button>
+
           <div id="advanced-menu" class="dropdown-menu">
             <button class="dropdown-item" onclick="refreshData(); toggleAdvancedMenu()">
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -34,6 +38,7 @@
               </svg>
               Refresh (only new activities + PR data)
             </button>
+
             <button class="dropdown-item" onclick="resumePull(); toggleAdvancedMenu()">
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M9 7L4 12l5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -41,6 +46,7 @@
               </svg>
               Resume Pull (fill gaps)
             </button>
+
             <button class="dropdown-item" onclick="fullPull(); toggleAdvancedMenu()">
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M4 4v6h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -50,13 +56,29 @@
               </svg>
               Full Data Pull
             </button>
-            <button class="dropdown-item" onclick="startPrBackfill(); toggleAdvancedMenu()">
+
+            <button class="dropdown-item" onclick="startPrBackfill()">
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M7 4a3 3 0 1 1 0 6a3 3 0 0 1 0-6zm0 10a3 3 0 1 1 0 6a3 3 0 0 1 0-6zm10-5a3 3 0 1 1 0 6a3 3 0 0 1 0-6z" fill="none" stroke="currentColor" stroke-width="2"/>
                 <path d="M10 7h4M10 17h4M17 12h0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
               </svg>
               Pull PR Data (background job)
             </button>
+
+            <div class="dropdown-divider"></div>
+
+            <div id="pr-backfill-admin-panel" class="dropdown-admin-panel">
+              <div class="dropdown-admin-header">
+                <div class="dropdown-admin-title">PR Backfill</div>
+                <button id="stop-pr-backfill-btn" class="dropdown-admin-stop" type="button" onclick="stopPrBackfill()">
+                  Stop
+                </button>
+              </div>
+
+              <div id="pr-backfill-admin-content" class="dropdown-admin-content">
+                <div class="dropdown-admin-empty">No PR backfill activity yet.</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -69,19 +91,6 @@
 
     <div id="spinner">
       <div class="spinner-wheel"></div>
-    </div>
-
-    <div id="pr-backfill-panel" class="card" style="display:none;">
-      <div class="accent-bar"></div>
-      <div class="card-header">
-        <span>PR Backfill Progress</span>
-        <button id="stop-pr-backfill-btn" class="clear-comparison" onclick="stopPrBackfill()" style="padding: 6px 12px;">Stop PR Backfill</button>
-      </div>
-      <div id="pr-backfill-content">
-        <div class="metric-row">
-          <div class="metric">Waiting to start…</div>
-        </div>
-      </div>
     </div>
 
     <div id="kpi-summary" class="kpi-grid"></div>
