@@ -385,6 +385,25 @@ async function fetchMissingGearDetails(existingGearDetails, gearTotals) {
 
 /* SEGMENT FETCH */
 
+function normalizeSegmentEffort(e) {
+  const elevationGain =
+    e?.segment?.elevation_high != null && e?.segment?.elevation_low != null
+      ? (e.segment.elevation_high - e.segment.elevation_low)
+      : (e?.elevation_gain ?? null);
+
+  return {
+    segment_id: e?.segment?.id || null,
+    segment_name: e?.segment?.name || e?.name || null,
+    distance: e?.distance ?? e?.segment?.distance ?? 0,
+    elapsed_time: e?.elapsed_time ?? 0,
+    moving_time: e?.moving_time ?? null,
+    start_date: e?.start_date || null,
+    pr_rank: e?.pr_rank || null,
+    average_grade: e?.segment?.average_grade ?? e?.average_grade ?? null,
+    elevation_gain: elevationGain
+  };
+}
+
 async function fetchSegmentEffortsForActivities(activities, existingSegmentData, fetchSegments = false) {
   if (!fetchSegments) {
     console.log("[Segment Fetch] Skipped (disabled to save rate limit)");
@@ -425,11 +444,7 @@ async function fetchSegmentEffortsForActivities(activities, existingSegmentData,
 
       const detail = await res.json();
       const efforts = Array.isArray(detail.segment_efforts)
-        ? detail.segment_efforts.map(e => ({
-            segment_id: e.segment && e.segment.id,
-            segment_name: e.segment && e.segment.name,
-            pr_rank: e.pr_rank || null
-          }))
+        ? detail.segment_efforts.map(normalizeSegmentEffort)
         : [];
 
       result[a.id] = efforts;
@@ -504,11 +519,7 @@ async function backfillSegmentEffortsResumable(cache, options = {}) {
 
       const detail = await res.json();
       const efforts = Array.isArray(detail.segment_efforts)
-        ? detail.segment_efforts.map(e => ({
-            segment_id: e.segment && e.segment.id,
-            segment_name: e.segment && e.segment.name,
-            pr_rank: e.pr_rank || null
-          }))
+        ? detail.segment_efforts.map(normalizeSegmentEffort)
         : [];
 
       workingCache.segmentData[activity.id] = efforts;
