@@ -29,6 +29,11 @@ function isValidHttpUrl(value) {
   }
 }
 
+function getStravaSegmentUrl(segmentId) {
+  if (!segmentId) return "";
+  return `https://www.strava.com/segments/${segmentId}?filter=my_results`;
+}
+
 function extractStravaActivityId(activityUrl) {
   if (!activityUrl) return null;
   const match = String(activityUrl).match(/strava\.com\/activities\/(\d+)/i);
@@ -57,6 +62,11 @@ function formatActivitySecondaryLabel(activity, gearDetails) {
   return `${date} • ${gearName}`;
 }
 
+function formatActivityBikeOnly(activity, gearDetails) {
+  if (!activity) return "";
+  return getGearName(gearDetails, activity.gear_id);
+}
+
 function renderActivityName(activity, gearDetails) {
   if (!activity) return "-";
 
@@ -73,14 +83,31 @@ function renderActivityName(activity, gearDetails) {
   `;
 }
 
+function renderSubduedActivityName(activity, gearDetails) {
+  if (!activity) return `<div class="segment-last-ride-empty">No recent ride found</div>`;
+
+  const title = escapeHtml(formatActivityTitle(activity));
+  const bikeOnly = escapeHtml(formatActivityBikeOnly(activity, gearDetails));
+
+  const titleHtml = isValidHttpUrl(activity.url)
+    ? `<a class="segment-last-ride-link" href="${activity.url}" target="_blank" rel="noopener noreferrer">${title}</a>`
+    : title;
+
+  return `
+    <div class="segment-last-ride-title">${titleHtml}</div>
+    ${bikeOnly ? `<div class="segment-last-ride-subtext">${bikeOnly}</div>` : ""}
+  `;
+}
+
 function formatDuration(seconds) {
   const total = Math.max(0, Math.round(seconds || 0));
   const hours = Math.floor(total / 3600);
   const minutes = Math.floor((total % 3600) / 60);
+  const secs = total % 60;
 
-  if (hours === 0) return `${minutes}m`;
-  if (minutes === 0) return `${hours}h`;
-  return `${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return secs > 0 ? `${minutes}m ${secs}s` : `${minutes}m`;
+  return `${secs}s`;
 }
 
 function formatDate(dateStr) {
@@ -490,7 +517,8 @@ const STORAGE_KEYS = {
   globalBike: "strava:globalBike",
   heroMetricMode: "strava:heroMetricMode",
   patternMetric: "strava:patternMetric",
-  monthlyTrendMetric: "strava:monthlyTrendMetric"
+  monthlyTrendMetric: "strava:monthlyTrendMetric",
+  excludedSegmentIds: "strava:excludedSegmentIds"
 };
 
 const EXCLUDED_HIGHEST_ELEVATION_ACTIVITY_ID = "1380665549";
@@ -506,6 +534,7 @@ let expandedBikeYears = new Set(JSON.parse(localStorage.getItem(STORAGE_KEYS.exp
 let bikeHistoryExpanded = new Set(JSON.parse(localStorage.getItem(STORAGE_KEYS.bikeHistoryExpanded) || "[]"));
 let patternMetric = localStorage.getItem(STORAGE_KEYS.patternMetric) || "distance";
 let monthlyTrendMetric = localStorage.getItem(STORAGE_KEYS.monthlyTrendMetric) || "distance";
+let excludedSegmentIds = new Set(JSON.parse(localStorage.getItem(STORAGE_KEYS.excludedSegmentIds) || "[]"));
 
 function saveSelectedBikes() {
   localStorage.setItem(STORAGE_KEYS.selectedBikes, JSON.stringify(Array.from(selectedBikes.keys())));
@@ -525,6 +554,30 @@ function saveExpandedBikeYears() {
 
 function saveBikeHistoryExpanded() {
   localStorage.setItem(STORAGE_KEYS.bikeHistoryExpanded, JSON.stringify(Array.from(bikeHistoryExpanded.values())));
+}
+
+function saveExcludedSegmentIds() {
+  localStorage.setItem(STORAGE_KEYS.excludedSegmentIds, JSON.stringify(Array.from(excludedSegmentIds.values())));
+}
+
+function excludeSegment(segmentId) {
+  if (!segmentId) return;
+  excludedSegmentIds.add(String(segmentId));
+  saveExcludedSegmentIds();
+  if (window.__rawDashboardData) renderAll(window.__rawDashboardData);
+}
+
+function includeSegment(segmentId) {
+  if (!segmentId) return;
+  excludedSegmentIds.delete(String(segmentId));
+  saveExcludedSegmentIds();
+  if (window.__rawDashboardData) renderAll(window.__rawDashboardData);
+}
+
+function clearExcludedSegments() {
+  excludedSegmentIds.clear();
+  saveExcludedSegmentIds();
+  if (window.__rawDashboardData) renderAll(window.__rawDashboardData);
 }
 
 function setAnnualBreakdownMode(mode) {
@@ -588,6 +641,235 @@ function applyThemePreference() {
   if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
     document.body.classList.add("dark");
   }
+}
+
+function buildSegmentSummaryHighlights(data) {
+  const segmentData = data.segmentData || {};
+  const activities = data.activities || [];
+  const activityById = Object.fromEntries(activities.map(activity => [String(activity.id), activity]));
+
+  let totalSegmentEfforts = 0;
+  let totalSegmentPrs = 0;
+  let activitiesWithSegments = 0;
+  let activitiesWithPrs = 0;
+
+  let mostPrRichActivity = null;
+  let mostSegmentEffortsActivity = null;
+  let latestActivityWithPr = null;
+  let bestNamedPrSegment = null;
+
+  Object.entries(segmentData).forEach(([activityId, efforts]) => {
+    const activity = activityById[String(activityId)];
+    if (!activity || !Array.isArray(efforts) || !efforts.length) return;
+
+    const effortCount = efforts.length;
+    const prEfforts = efforts.filter(e => e?.pr_rank === 1);
+    const prCount = prEfforts.length;
+
+    totalSegmentEfforts += effortCount;
+    totalSegmentPrs += prCount;
+    activitiesWithSegments += 1;
+    if (prCount > 0) activitiesWithPrs += 1;
+
+    const base = { activity, effortCount, prCount };
+
+    if (!mostPrRichActivity || prCount > mostPrRichActivity.prCount) {
+      mostPrRichActivity = base;
+    }
+
+    if (!mostSegmentEffortsActivity || effortCount > mostSegmentEffortsActivity.effortCount) {
+      mostSegmentEffortsActivity = base;
+    }
+
+    if (prCount > 0) {
+      if (!latestActivityWithPr || new Date(activity.start_date).getTime() > new Date(latestActivityWithPr.activity.start_date).getTime()) {
+        latestActivityWithPr = base;
+      }
+    }
+
+    prEfforts.forEach((effort, index) => {
+      const segmentName = effort?.segment_name || effort?.name || effort?.segment?.name || null;
+      if (!segmentName) return;
+      if (!bestNamedPrSegment) {
+        bestNamedPrSegment = {
+          activity,
+          segmentName,
+          prRank: effort?.pr_rank || 1,
+          ordinal: index
+        };
+      }
+    });
+  });
+
+  const cards = [];
+
+  cards.push({
+    label: "Total segment efforts",
+    activity: null,
+    value: `${comma(totalSegmentEfforts)} efforts`,
+    subtext: activitiesWithSegments > 0
+      ? `Across ${comma(activitiesWithSegments)} activities in the current view`
+      : "No activities in the current view have segment data"
+  });
+
+  cards.push({
+    label: "Total segment PRs",
+    activity: null,
+    value: `${comma(totalSegmentPrs)} PRs`,
+    subtext: activitiesWithPrs > 0
+      ? `Across ${comma(activitiesWithPrs)} activities with at least one segment PR`
+      : "No segment PRs in the current filtered view"
+  });
+
+  if (mostPrRichActivity) {
+    cards.push({
+      label: "Most segment PRs in one activity",
+      activity: mostPrRichActivity.activity,
+      value: `${comma(mostPrRichActivity.prCount)} PR${mostPrRichActivity.prCount === 1 ? "" : "s"}`,
+      subtext: `${comma(mostPrRichActivity.effortCount)} total segment effort${mostPrRichActivity.effortCount === 1 ? "" : "s"} recorded`
+    });
+  }
+
+  if (mostSegmentEffortsActivity) {
+    cards.push({
+      label: "Most segment efforts in one activity",
+      activity: mostSegmentEffortsActivity.activity,
+      value: `${comma(mostSegmentEffortsActivity.effortCount)} efforts`,
+      subtext: `${comma(mostSegmentEffortsActivity.prCount)} segment PR${mostSegmentEffortsActivity.prCount === 1 ? "" : "s"} on that activity`
+    });
+  }
+
+  if (latestActivityWithPr) {
+    cards.push({
+      label: "Latest activity with a segment PR",
+      activity: latestActivityWithPr.activity,
+      value: `${comma(latestActivityWithPr.prCount)} PR${latestActivityWithPr.prCount === 1 ? "" : "s"}`,
+      subtext: `${formatDate(latestActivityWithPr.activity.start_date)} • ${comma(latestActivityWithPr.effortCount)} segment effort${latestActivityWithPr.effortCount === 1 ? "" : "s"}`
+    });
+  }
+
+  if (bestNamedPrSegment) {
+    cards.push({
+      label: "Named segment PR spotted",
+      activity: bestNamedPrSegment.activity,
+      value: bestNamedPrSegment.segmentName,
+      subtext: `Found in the current filtered data`
+    });
+  }
+
+  return cards.filter(Boolean);
+}
+
+function buildSegmentDistanceHighlights(data) {
+  const segmentData = data.segmentData || {};
+  const activities = data.activities || [];
+  const activityById = Object.fromEntries(activities.map(activity => [String(activity.id), activity]));
+
+  const bucketDefs = [
+    { key: "under-0-5", label: "Under 0.5 mi", min: 0, max: 0.5 },
+    { key: "0-5-to-1", label: "0.5–1.0 mi", min: 0.5, max: 1.0 },
+    { key: "1-to-1-5", label: "1.0–1.5 mi", min: 1.0, max: 1.5 },
+    { key: "1-5-to-2", label: "1.5–2.0 mi", min: 1.5, max: 2.0 },
+    { key: "2-to-3", label: "2.0–3.0 mi", min: 2.0, max: 3.0 },
+    { key: "3-to-4", label: "3.0–4.0 mi", min: 3.0, max: 4.0 },
+    { key: "4-to-5", label: "4.0–5.0 mi", min: 4.0, max: 5.0 },
+    { key: "5-plus", label: "5.0+ mi", min: 5.0, max: Infinity }
+  ];
+
+  function getBucketForMiles(distanceMiles) {
+    return bucketDefs.find(bucket => distanceMiles >= bucket.min && distanceMiles < bucket.max) || null;
+  }
+
+  const perSegment = new Map();
+
+  Object.entries(segmentData).forEach(([activityId, efforts]) => {
+    const activity = activityById[String(activityId)];
+    if (!activity || !Array.isArray(efforts)) return;
+
+    efforts.forEach((effort, index) => {
+      const segmentId = effort?.segment_id ? String(effort.segment_id) : null;
+      const distanceMeters = Number(effort?.distance || 0);
+      const distanceMiles = miles(distanceMeters);
+
+      if (!segmentId || !distanceMeters || distanceMeters <= 0) return;
+      if (excludedSegmentIds.has(segmentId)) return;
+
+      if (!perSegment.has(segmentId)) {
+        perSegment.set(segmentId, {
+          segmentId,
+          segmentName: effort?.segment_name || effort?.name || `Segment ${index + 1}`,
+          distanceMiles,
+          attempts: 0,
+          prCount: 0,
+          fastestElapsedTime: null,
+          averageGrade: typeof effort?.average_grade === "number" ? effort.average_grade : null,
+          elevationGainFeet: effort?.elevation_gain != null ? feet(Number(effort.elevation_gain || 0)) : null,
+          latestActivity: activity,
+          firstRidden: activity.start_date,
+          lastRidden: activity.start_date
+        });
+      }
+
+      const row = perSegment.get(segmentId);
+      row.attempts += 1;
+      if (effort?.pr_rank === 1) row.prCount += 1;
+
+      const elapsed = Number(effort?.elapsed_time || 0);
+      if (elapsed > 0 && (!row.fastestElapsedTime || elapsed < row.fastestElapsedTime)) {
+        row.fastestElapsedTime = elapsed;
+      }
+
+      const activityTs = new Date(activity.start_date).getTime();
+      if (!row.latestActivity || activityTs > new Date(row.latestActivity.start_date).getTime()) {
+        row.latestActivity = activity;
+      }
+
+      if (!row.firstRidden || activityTs < new Date(row.firstRidden).getTime()) {
+        row.firstRidden = activity.start_date;
+      }
+
+      if (!row.lastRidden || activityTs > new Date(row.lastRidden).getTime()) {
+        row.lastRidden = activity.start_date;
+      }
+    });
+  });
+
+  const bucketWinners = bucketDefs.map(bucket => {
+    const candidates = Array.from(perSegment.values())
+      .filter(segment => {
+        const segBucket = getBucketForMiles(segment.distanceMiles);
+        return segBucket && segBucket.key === bucket.key;
+      })
+      .sort((a, b) => {
+        if (b.attempts !== a.attempts) return b.attempts - a.attempts;
+        if ((b.prCount || 0) !== (a.prCount || 0)) return (b.prCount || 0) - (a.prCount || 0);
+        return a.distanceMiles - b.distanceMiles;
+      });
+
+    const winner = candidates[0];
+    if (!winner) return null;
+
+    const statParts = [
+      `${comma(winner.attempts)} effort${winner.attempts === 1 ? "" : "s"}`,
+      `${comma(winner.prCount)} PR${winner.prCount === 1 ? "" : "s"}`,
+      `${winner.distanceMiles.toFixed(1)} mi`
+    ];
+
+    if (winner.fastestElapsedTime) statParts.push(`fastest ${formatDuration(winner.fastestElapsedTime)}`);
+    if (winner.averageGrade != null) statParts.push(`${winner.averageGrade.toFixed(1)}% avg`);
+    if (winner.elevationGainFeet != null) statParts.push(`${comma(winner.elevationGainFeet.toFixed(0))} ft`);
+
+    return {
+      label: bucket.label,
+      segmentId: winner.segmentId,
+      segmentName: winner.segmentName,
+      statsText: statParts.join(" • "),
+      latestActivity: winner.latestActivity || null,
+      lastRidden: winner.lastRidden || null
+    };
+  });
+
+  return bucketWinners.filter(Boolean);
 }
 
 function deriveRideInsights(data) {
@@ -726,16 +1008,6 @@ function deriveRideInsights(data) {
       return best;
     }, null);
 
-  const steepestRide = rideActivities
-    .filter(a => (a.distance || 0) > 0 && (a.total_elevation_gain || 0) > 0)
-    .reduce((best, a) => {
-      const elevationPerMile = feet(a.total_elevation_gain) / Math.max(miles(a.distance), 0.01);
-      if (!best || elevationPerMile > best.elevation_per_mile) {
-        return { ...a, elevation_per_mile: elevationPerMile };
-      }
-      return best;
-    }, null);
-
   return {
     perBike,
     highlights: {
@@ -752,8 +1024,7 @@ function deriveRideInsights(data) {
       longestActivity,
       highestElevationActivity,
       longestMovingTimeActivity,
-      fastestRide,
-      steepestRide
+      fastestRide
     }
   };
 }
@@ -836,14 +1107,20 @@ function applyGlobalFilters(rawData) {
     activities = activities.filter(a => a.gear_id === bike);
   }
 
+  const allowedIds = new Set(activities.map(a => String(a.id)));
+  const filteredSegmentData = Object.fromEntries(
+    Object.entries(rawData.segmentData || {}).filter(([activityId]) => allowedIds.has(String(activityId)))
+  );
+
   const cloned = {
     ...rawData,
-    activities
+    activities,
+    segmentData: filteredSegmentData
   };
 
   cloned.activityCounts = buildActivityCountsFromActivities(activities);
-  cloned.gearTotals = buildGearTotalsFromActivities(activities, rawData.segmentData || {});
-  cloned.bikeYearStats = buildBikeYearStatsFromActivities(activities, rawData.segmentData || {});
+  cloned.gearTotals = buildGearTotalsFromActivities(activities, filteredSegmentData);
+  cloned.bikeYearStats = buildBikeYearStatsFromActivities(activities, filteredSegmentData);
   cloned.gearDetails = rawData.gearDetails || {};
   cloned.annualStats = buildAnnualStatsSimple(activities);
 
@@ -1112,11 +1389,107 @@ function renderHighlights(rideInsights, gearDetails = {}) {
     ${bikeCard("Most-used bike by miles", h.mostUsedByMiles, h.mostUsedByMiles ? `${comma(miles(h.mostUsedByMiles.distance).toFixed(1))} mi` : "-")}
     ${bikeCard("Biggest mileage week", h.biggestMileageWeekBike, h.biggestMileageWeekBike ? `${comma(miles(h.biggestMileageWeekBike.distance).toFixed(1))} mi` : "-", h.biggestMileageWeekBike ? h.biggestMileageWeekBike.label : "")}
     ${bikeCard("Most total activity time", h.mostTotalTimeBike, h.mostTotalTimeBike ? formatDuration(h.mostTotalTimeBike.moving_time) : "-")}
-    ${bikeCard("Longest-used bike", h.longestUsedBike, h.longestUsedBike ? formatYearsBetween(h.longestUsedBike.firstRide, h.longestUsedBike.lastRide) : "-", h.longestUsedBike ? `${formatDate(h.longestUsedBike.firstRide)} ? ${formatDate(h.longestUsedBike.lastRide)}` : "")}
+    ${bikeCard("Longest-used bike", h.longestUsedBike, h.longestUsedBike ? formatYearsBetween(h.longestUsedBike.firstRide, h.longestUsedBike.lastRide) : "-", h.longestUsedBike ? `${formatDate(h.longestUsedBike.firstRide)} • ${formatDate(h.longestUsedBike.lastRide)}` : "")}
     ${activityCard("Longest single activity", h.longestActivity, h.longestActivity ? `${comma(miles(h.longestActivity.distance || 0).toFixed(1))} mi` : "-")}
     ${activityCard("Most elevation in a single activity", h.highestElevationActivity, h.highestElevationActivity ? `${comma(feet(h.highestElevationActivity.total_elevation_gain || 0).toFixed(0))} ft` : "-")}
     ${activityCard("Longest activity time", h.longestMovingTimeActivity, h.longestMovingTimeActivity ? formatDuration(h.longestMovingTimeActivity.moving_time || 0) : "-")}
     ${activityCard("Fastest ride by avg speed", h.fastestRide, h.fastestRide ? `${h.fastestRide.avg_speed_mph.toFixed(1)} mph` : "-")}
+  `;
+}
+
+function renderSegmentSummaryHighlights(items, gearDetails = {}) {
+  const container = document.getElementById("segment-summary-grid");
+  if (!container) return;
+
+  if (!items.length) {
+    const totalSegmentActivities = Object.keys(window.__rawDashboardData?.segmentData || {}).length;
+    container.innerHTML = `
+      <div class="empty-state">
+        No segment summary data available in the current filtered view.
+        ${totalSegmentActivities === 0
+          ? " The dashboard response does not currently include any segment data."
+          : " Try broadening the filters or refreshing the data."}
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = items.map(item => `
+    <div class="record-card">
+      <div class="record-label">${escapeHtml(item.label)}</div>
+      ${item.activity ? renderActivityName(item.activity, gearDetails) : `<div class="record-title">${escapeHtml(item.value || "-")}</div>`}
+      ${item.activity ? `<div class="record-value">${escapeHtml(item.value || "-")}</div>` : ""}
+      ${item.subtext ? `<div class="record-subtext">${escapeHtml(item.subtext)}</div>` : ""}
+    </div>
+  `).join("");
+}
+
+function renderExcludedSegmentLinks() {
+  if (!excludedSegmentIds.size) return "";
+
+  const items = Array.from(excludedSegmentIds.values())
+    .sort((a, b) => Number(a) - Number(b))
+    .map(segmentId => {
+      const url = getStravaSegmentUrl(segmentId);
+      return `
+        <span class="excluded-segment-chip">
+          <a href="${url}" target="_blank" rel="noopener noreferrer">${escapeHtml(segmentId)}</a>
+          <button type="button" class="excluded-segment-remove" onclick="includeSegment('${escapeHtml(segmentId)}')" aria-label="Restore segment ${escapeHtml(segmentId)}">×</button>
+        </span>
+      `;
+    })
+    .join("");
+
+  return `
+    <div class="excluded-segment-wrap">
+      <div class="segment-controls-note">Excluded Segments</div>
+      <div class="excluded-segment-list">${items}</div>
+      <div class="segment-controls-row">
+        <button class="segment-inline-action" type="button" onclick="clearExcludedSegments()">Clear excluded segments</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderSegmentDistanceHighlights(items, gearDetails = {}) {
+  const container = document.getElementById("segment-distance-grid");
+  if (!container) return;
+
+  const excludedLinks = renderExcludedSegmentLinks();
+
+  if (!items.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        No segment distance-bucket data available in the current filtered view.
+      </div>
+      ${excludedLinks}
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    ${excludedLinks}
+    ${items.map(item => {
+      const segmentUrl = getStravaSegmentUrl(item.segmentId);
+      return `
+        <div class="record-card">
+          <div class="record-label">${escapeHtml(item.label)}</div>
+          <div class="record-title">
+            <a class="highlight-activity-link" href="${segmentUrl}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.segmentName)}</a>
+          </div>
+          <div class="record-subtext">${escapeHtml(item.statsText)}</div>
+
+          <div class="segment-controls-row">
+            ${item.segmentId ? `<button class="segment-inline-action" type="button" onclick="excludeSegment('${escapeHtml(item.segmentId)}')">Exclude this segment</button>` : ""}
+          </div>
+
+          <div class="segment-last-ride-block">
+            <div class="segment-controls-note">Last ridden: ${escapeHtml(formatDate(item.lastRidden))}</div>
+            ${renderSubduedActivityName(item.latestActivity, gearDetails)}
+          </div>
+        </div>
+      `;
+    }).join("")}
   `;
 }
 
@@ -1176,7 +1549,9 @@ function buildMonthlyTrend(activities, metric) {
     else months[key].value += 1;
   });
 
-  return Object.values(months).sort((a, b) => a.sortKey - b.sortKey).slice(-12);
+  return Object.values(months)
+    .sort((a, b) => b.sortKey - a.sortKey)
+    .slice(0, 12);
 }
 
 function renderBarChart(containerId, items, formatter) {
@@ -1958,6 +2333,8 @@ async function renderAll(rawData) {
 
   const data = applyGlobalFilters(rawData);
   const rideInsights = deriveRideInsights(data);
+  const segmentSummaryHighlights = buildSegmentSummaryHighlights(data);
+  const segmentDistanceHighlights = buildSegmentDistanceHighlights(data);
 
   renderHero(data, rideInsights);
   renderKpiSummary(data);
@@ -1965,6 +2342,8 @@ async function renderAll(rawData) {
   renderActivityTypeShare(data.activityCounts || {});
   renderAnnualStats(data);
   renderHighlights(rideInsights, data.gearDetails || {});
+  renderSegmentSummaryHighlights(segmentSummaryHighlights, data.gearDetails || {});
+  renderSegmentDistanceHighlights(segmentDistanceHighlights, data.gearDetails || {});
   renderBikeStats(data.bikeYearStats || {}, data.gearTotals || {}, data.gearDetails || {}, rideInsights);
 
   if (data.prBackfill) {
