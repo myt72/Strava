@@ -2346,3 +2346,243 @@ async function fullPull() {
 async function pullPrData() {
   return startPrBackfill();
 }
+
+function buildSegmentSummaryHighlights(data) {
+  const segmentData = data.segmentData || {};
+  const activities = data.activities || [];
+  const activityById = Object.fromEntries(activities.map(activity => [String(activity.id), activity]));
+
+  const perSegment = new Map();
+  let totalEfforts = 0;
+  let totalPrs = 0;
+
+  Object.entries(segmentData).forEach(([activityId, efforts]) => {
+    const activity = activityById[String(activityId)];
+    if (!activity || !Array.isArray(efforts)) return;
+
+    efforts.forEach((effort, index) => {
+      const segmentId = effort?.segment_id ? String(effort.segment_id) : null;
+      if (!segmentId) return;
+      if (excludedSegmentIds.has(segmentId)) return;
+
+      totalEfforts += 1;
+      if (effort?.pr_rank === 1) totalPrs += 1;
+
+      if (!perSegment.has(segmentId)) {
+        perSegment.set(segmentId, {
+          segmentId,
+          segmentName: effort?.segment_name || effort?.name || `Segment ${index + 1}`,
+          attempts: 0,
+          prCount: 0,
+          latestActivity: activity,
+          lastRidden: activity.start_date
+        });
+      }
+
+      const row = perSegment.get(segmentId);
+      row.attempts += 1;
+      if (effort?.pr_rank === 1) row.prCount += 1;
+
+      const activityTs = new Date(activity.start_date).getTime();
+      if (!row.latestActivity || activityTs > new Date(row.latestActivity.start_date).getTime()) {
+        row.latestActivity = activity;
+      }
+      if (!row.lastRidden || activityTs > new Date(row.lastRidden).getTime()) {
+        row.lastRidden = activity.start_date;
+      }
+    });
+  });
+
+  const segments = Array.from(perSegment.values());
+  const mostAttempted = segments.sort((a, b) => b.attempts - a.attempts)[0] || null;
+  const mostPrs = segments.sort((a, b) => b.prCount - a.prCount)[0] || null;
+
+  return {
+    totalSegments: segments.length,
+    totalEfforts,
+    totalPrs,
+    mostAttempted,
+    mostPrs
+  };
+}
+
+function renderSegmentSummaryHighlights(summary, gearDetails = {}) {
+  const container = document.getElementById("segment-summary-grid");
+  if (!container) return;
+
+  const excludedLinks = renderExcludedSegmentLinks();
+
+  const statCard = (label, title, value, subtext = "") => `
+    <div class="record-card">
+      <div class="record-label">${label}</div>
+      <div class="record-title">${title}</div>
+      <div class="record-value">${value}</div>
+      ${subtext ? `<div class="record-subtext">${subtext}</div>` : ""}
+    </div>
+  `;
+
+  const segmentCard = (label, item, valueText) => {
+    if (!item) {
+      return `
+        <div class="record-card">
+          <div class="record-label">${label}</div>
+          <div class="record-title">No qualifying segment</div>
+          <div class="record-subtext">No segment data available in the current view.</div>
+        </div>
+      `;
+    }
+
+    const segmentUrl = getStravaSegmentUrl(item.segmentId);
+    return `
+      <div class="record-card">
+        <div class="record-label">${label}</div>
+        <div class="record-title">
+          <a class="highlight-activity-link" href="${segmentUrl}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.segmentName)}</a>
+        </div>
+        <div class="record-value">${valueText}</div>
+        <div class="segment-controls-row">
+          <button class="segment-inline-action" type="button" onclick="excludeSegment('${escapeHtml(item.segmentId)}')">Exclude this segment</button>
+        </div>
+        <div class="segment-last-ride-block">
+          <div class="segment-controls-note">Last ridden: ${escapeHtml(formatDate(item.lastRidden))}</div>
+          ${renderSubduedActivityName(item.latestActivity, gearDetails)}
+        </div>
+      </div>
+    `;
+  };
+
+  container.innerHTML = `
+    ${excludedLinks}
+    ${statCard("Tracked segments", comma(summary.totalSegments || 0), `${comma(summary.totalEfforts || 0)} efforts`, `${comma(summary.totalPrs || 0)} PRs across current filtered activities`)}
+    ${segmentCard("Most attempted segment", summary.mostAttempted, summary.mostAttempted ? `${comma(summary.mostAttempted.attempts)} efforts` : "-")}
+    ${segmentCard("Most PRs on one segment", summary.mostPrs, summary.mostPrs ? `${comma(summary.mostPrs.prCount)} PRs` : "-")}
+  `;
+}
+
+function buildSegmentDistanceHighlights(data) {
+  const segmentData = data.segmentData || {};
+  const activities = data.activities || [];
+  const activityById = Object.fromEntries(activities.map(activity => [String(activity.id), activity]));
+
+  const bucketDefs = [
+    { key: "0-0.5", label: "Under 0.5 mi", min: 0, max: 0.5 },
+    { key: "0.5-1", label: "0.5–1.0 mi", min: 0.5, max: 1.0 },
+    { key: "1-2", label: "1.0–2.0 mi", min: 1.0, max: 2.0 },
+    { key: "2-3", label: "2.0–3.0 mi", min: 2.0, max: 3.0 },
+    { key: "3plus", label: "3.0+ mi", min: 3.0, max: Infinity }
+  ];
+
+  function getBucketForDistanceMiles(distanceMiles) {
+    return bucketDefs.find(bucket => distanceMiles >= bucket.min && distanceMiles < bucket.max) || null;
+  }
+
+  const perSegment = new Map();
+
+  Object.entries(segmentData).forEach(([activityId, efforts]) => {
+    const activity = activityById[String(activityId)];
+    if (!activity || !Array.isArray(efforts)) return;
+
+    efforts.forEach((effort, index) => {
+      const segmentId = effort?.segment_id ? String(effort.segment_id) : null;
+      const distanceMilesValue = miles(Number(effort?.distance || 0));
+
+      if (!segmentId || distanceMilesValue <= 0) return;
+      if (excludedSegmentIds.has(segmentId)) return;
+
+      if (!perSegment.has(segmentId)) {
+        perSegment.set(segmentId, {
+          segmentId,
+          segmentName: effort?.segment_name || effort?.name || `Segment ${index + 1}`,
+          distanceMiles: distanceMilesValue,
+          elevationFeet: feet(Number(effort?.elevation_gain || 0)),
+          attempts: 0,
+          prCount: 0,
+          latestActivity: activity,
+          lastRidden: activity.start_date
+        });
+      }
+
+      const row = perSegment.get(segmentId);
+      row.attempts += 1;
+      if (effort?.pr_rank === 1) row.prCount += 1;
+
+      const activityTs = new Date(activity.start_date).getTime();
+      if (!row.latestActivity || activityTs > new Date(row.latestActivity.start_date).getTime()) {
+        row.latestActivity = activity;
+      }
+      if (!row.lastRidden || activityTs > new Date(row.lastRidden).getTime()) {
+        row.lastRidden = activity.start_date;
+      }
+    });
+  });
+
+  return bucketDefs.map(bucket => {
+    const candidates = Array.from(perSegment.values())
+      .filter(segment => {
+        const segBucket = getBucketForDistanceMiles(segment.distanceMiles);
+        return segBucket && segBucket.key === bucket.key;
+      })
+      .sort((a, b) => {
+        if (b.attempts !== a.attempts) return b.attempts - a.attempts;
+        if ((b.prCount || 0) !== (a.prCount || 0)) return (b.prCount || 0) - (a.prCount || 0);
+        return (b.distanceMiles || 0) - (a.distanceMiles || 0);
+      });
+
+    const winner = candidates[0];
+    if (!winner) {
+      return {
+        label: bucket.label,
+        empty: true,
+        emptyMessage: "No qualifying segments in this distance bucket."
+      };
+    }
+
+    return {
+      label: bucket.label,
+      segmentId: winner.segmentId,
+      segmentName: winner.segmentName,
+      statsText: `${winner.distanceMiles.toFixed(1)} mi • ${comma(Math.round(winner.elevationFeet))} ft • ${comma(winner.attempts)} efforts${winner.prCount ? ` • ${comma(winner.prCount)} PRs` : ""}`,
+      latestActivity: winner.latestActivity || null,
+      lastRidden: winner.lastRidden || null
+    };
+  });
+}
+
+function renderSegmentDistanceHighlights(items, gearDetails = {}) {
+  const container = document.getElementById("segment-distance-grid");
+  if (!container) return;
+
+  container.innerHTML = `
+    ${items.map(item => {
+      if (item.empty) {
+        return `
+          <div class="record-card">
+            <div class="record-label">${escapeHtml(item.label)}</div>
+            <div class="record-title">No qualifying segment</div>
+            <div class="record-subtext">${escapeHtml(item.emptyMessage || "No data available.")}</div>
+          </div>
+        `;
+      }
+
+      const segmentUrl = getStravaSegmentUrl(item.segmentId);
+      return `
+        <div class="record-card">
+          <div class="record-label">${escapeHtml(item.label)}</div>
+          <div class="record-title">
+            <a class="highlight-activity-link" href="${segmentUrl}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.segmentName)}</a>
+          </div>
+          <div class="record-subtext">${escapeHtml(item.statsText)}</div>
+
+          <div class="segment-controls-row">
+            <button class="segment-inline-action" type="button" onclick="excludeSegment('${escapeHtml(item.segmentId)}')">Exclude this segment</button>
+          </div>
+
+          <div class="segment-last-ride-block">
+            <div class="segment-controls-note">Last ridden: ${escapeHtml(formatDate(item.lastRidden))}</div>
+            ${renderSubduedActivityName(item.latestActivity, gearDetails)}
+          </div>
+        </div>
+      `;
+    }).join("")}
+  `;
+}
