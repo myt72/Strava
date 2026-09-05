@@ -281,6 +281,34 @@
           </div>
           <div id="segment-distance-grid" class="records-grid"></div>
         </div>
+
+        <div class="milestone-subsection">
+          <div class="milestone-subsection-header">
+            <div>
+              <h3 class="milestone-subsection-title">Most efforts by elevation</h3>
+              <div class="chart-card-subtitle">Top repeated segments grouped by elevation bucket</div>
+            </div>
+          </div>
+
+          <div class="segment-threshold-toolbar">
+            <div class="segment-threshold-field">
+              <label for="segment-elevation-min-attempts">Minimum efforts</label>
+              <input
+                id="segment-elevation-min-attempts"
+                type="number"
+                min="1"
+                step="1"
+                value="10"
+                onchange="handleSegmentElevationMinAttemptsChange()"
+              />
+            </div>
+            <div class="segment-controls-note">
+              Results update when this value changes. Default is 10.
+            </div>
+          </div>
+
+          <div id="segment-elevation-grid" class="records-grid"></div>
+        </div>
       </section>
 
       <section id="distribution-card" class="card glass-card">
