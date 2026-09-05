@@ -560,7 +560,8 @@ body.dark .side-rail {
 
 .filter-field select,
 .bike-controls input,
-.bike-controls select {
+.bike-controls select,
+.segment-threshold-field input {
   width: 100%;
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -798,7 +799,8 @@ body.dark .side-rail {
 }
 
 .record-value,
-.highlight-value {
+.highlight-value,
+.bike-insight-value {
   margin-top: 8px;
   font-size: 15px;
   color: var(--accent);
@@ -832,9 +834,23 @@ body.dark .side-rail {
 
 .milestone-subsection-title {
   margin: 0;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 800;
   line-height: 1.2;
+}
+
+.segment-threshold-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.segment-threshold-field {
+  min-width: 180px;
+  max-width: 220px;
 }
 
 .segment-controls-row {
@@ -843,7 +859,7 @@ body.dark .side-rail {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  margin-top: 10px;
+  margin-top: 12px;
 }
 
 .segment-controls-note,
@@ -853,75 +869,45 @@ body.dark .side-rail {
   line-height: 1.4;
 }
 
-.segment-inline-action {
+.segment-inline-action,
+.segment-restore-chip {
   border: 1px solid var(--border);
   background: var(--surface-strong);
-  color: var(--accent);
+  color: var(--text);
   border-radius: 999px;
-  padding: 5px 10px;
-  cursor: pointer;
-  font-size: 11px;
+  padding: 8px 12px;
+  font-size: 12px;
   font-weight: 700;
-  line-height: 1.2;
+  cursor: pointer;
   transition: 0.2s ease;
 }
 
-.segment-inline-action:hover {
-  background: var(--surface);
-  transform: translateY(-1px);
+.segment-inline-action:hover,
+.segment-restore-chip:hover {
+  background: var(--surface-muted);
 }
 
-.excluded-segment-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  margin-bottom: 14px;
+.segment-excluded-bar {
+  grid-column: 1 / -1;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  border-radius: 16px;
+  padding: 14px;
 }
 
-.excluded-segment-list {
+.segment-excluded-label {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 10px;
+}
+
+.segment-excluded-list {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin: 0;
-}
-
-.excluded-segment-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 9px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface-strong);
-  box-shadow: var(--shadow-soft);
-}
-
-.excluded-segment-chip a {
-  color: var(--accent);
-  text-decoration: none;
-  font-weight: 700;
-  font-size: 11px;
-  line-height: 1.2;
-}
-
-.excluded-segment-chip a:hover {
-  text-decoration: underline;
-}
-
-.excluded-segment-remove {
-  border: none;
-  background: transparent;
-  color: var(--danger);
-  cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
-  padding: 0 2px;
-  font-weight: 800;
-}
-
-.excluded-segment-remove:hover {
-  opacity: 0.8;
 }
 
 .segment-last-ride-block {
@@ -937,24 +923,37 @@ body.dark .side-rail {
   line-height: 1.35;
 }
 
-.segment-last-ride-link {
+.segment-last-ride-link,
+.featured-activity-link,
+.highlight-activity-link {
   color: var(--accent);
   text-decoration: none;
   font-weight: 700;
 }
 
-.segment-last-ride-link:hover {
-  text-decoration: none;
-  opacity: 0.9;
+.segment-last-ride-link:hover,
+.featured-activity-link:hover,
+.highlight-activity-link:hover {
+  text-decoration: underline;
 }
 
 .segment-last-ride-subtext,
 .segment-last-ride-date,
-.segment-last-ride-empty {
+.segment-last-ride-empty,
+.segment-activity-ref-subtext {
   margin-top: 4px;
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.4;
+}
+
+.segment-activity-ref {
+  margin-top: 8px;
+}
+
+.segment-activity-ref-title {
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .stack-list {
@@ -1146,7 +1145,9 @@ body.dark .side-rail {
 }
 
 .week-toggle-btn,
-.history-toggle-btn {
+.history-toggle-btn,
+.pin-button,
+.clear-comparison {
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
@@ -1154,9 +1155,6 @@ body.dark .side-rail {
   padding: 8px 12px;
   cursor: pointer;
   font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .chevron-icon {
@@ -1205,17 +1203,6 @@ body.dark .side-rail {
   flex-wrap: wrap;
 }
 
-.pin-button,
-.clear-comparison {
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  border-radius: 999px;
-  padding: 8px 12px;
-  cursor: pointer;
-  font-weight: 700;
-}
-
 .pin-button.pinned {
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
   color: white;
@@ -1230,7 +1217,6 @@ body.dark .side-rail {
 }
 
 .bike-summary-metrics,
-.bike-insights-grid,
 .metric-row,
 .featured-activity-metrics {
   display: flex;
@@ -1388,18 +1374,6 @@ body.dark .side-rail {
   gap: 10px;
 }
 
-.featured-activity-link,
-.highlight-activity-link {
-  color: var(--accent);
-  text-decoration: none;
-  font-weight: 700;
-}
-
-.featured-activity-link:hover,
-.highlight-activity-link:hover {
-  text-decoration: underline;
-}
-
 .featured-activity-link-disabled {
   color: var(--text-muted);
   font-size: 13px;
@@ -1488,10 +1462,5 @@ body.dark .side-rail {
 
   .segment-inline-action {
     width: auto;
-  }
-
-  .excluded-segment-chip {
-    width: auto;
-    max-width: 100%;
   }
 }
