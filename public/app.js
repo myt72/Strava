@@ -251,7 +251,7 @@ function iconPercent() {
 function iconFire() {
   return `
     <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 3c1 3-1 4-1 6 0 1 1 2 2 3 2-1 3-3 3-5 3 2 5 5 5 8a8 8 0 1 1-16 0c0-2 1-4 3-6 0 2 1 3 2 4 1-1 1-2 1-4 0-2 0-4 1-6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path>
+      <path d="M12 3c1 3-1 4-1 6 0 1 1 2 2 3 2-1 3-3 3-5 3 2 5 5 5 8a8 8 0 1 1-16 0c0-2 1-4 3-6 0 2 1 3 2 4 1-1 1-2 1-4 0-2 0-4 1-6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
     </svg>
   `;
 }
@@ -593,12 +593,13 @@ function restoreExcludedSegment(segmentId) {
   }
 }
 
-function renderExcludedSegmentLinks() {
+function renderExcludedSegmentLinks(options = {}) {
   if (!excludedSegmentIds.size) return "";
   const ids = Array.from(excludedSegmentIds.values()).sort((a, b) => String(a).localeCompare(String(b)));
+  const compact = options.compact === true;
 
   return `
-    <div class="segment-excluded-bar">
+    <div class="segment-excluded-bar ${compact ? "segment-excluded-bar-compact" : ""}">
       <div class="segment-excluded-label">Excluded segments</div>
       <div class="segment-excluded-list">
         ${ids.map(id => `
@@ -1321,7 +1322,7 @@ function renderHighlights(rideInsights, gearDetails = {}) {
     ${bikeCard("Most recent bike", h.mostRecentBike, h.mostRecentBike ? formatDate(h.mostRecentBike.lastRide) : "-")}
     ${bikeCard("Biggest mileage week", h.biggestMileageWeekBike, h.biggestMileageWeekBike ? `${comma(miles(h.biggestMileageWeekBike.distance).toFixed(1))} mi` : "-", h.biggestMileageWeekBike ? h.biggestMileageWeekBike.label : "")}
     ${bikeCard("Biggest climbing week", h.biggestClimbingWeekBike, h.biggestClimbingWeekBike ? `${comma(feet(h.biggestClimbingWeekBike.elevation).toFixed(0))} ft` : "-", h.biggestClimbingWeekBike ? h.biggestClimbingWeekBike.label : "")}
-    ${bikeCard("Longest-used bike", h.longestUsedBike, h.longestUsedBike ? formatYearsBetween(h.longestUsedBike.firstRide, h.longestUsedBike.lastRide) : "-", h.longestUsedBike ? `${formatDate(h.longestUsedBike.firstRide)} ? ${formatDate(h.longestUsedBike.lastRide)}` : "")}
+    ${bikeCard("Longest-used bike", h.longestUsedBike, h.longestUsedBike ? formatYearsBetween(h.longestUsedBike.firstRide, h.longestUsedBike.lastRide) : "-", h.longestUsedBike ? `${formatDate(h.longestUsedBike.firstRide)} • ${formatDate(h.longestUsedBike.lastRide)}` : "")}
     ${activityCard("Longest single activity", h.longestActivity, h.longestActivity ? `${comma(miles(h.longestActivity.distance || 0).toFixed(1))} mi` : "-")}
     ${activityCard("Most elevation in a single activity", h.highestElevationActivity, h.highestElevationActivity ? `${comma(feet(h.highestElevationActivity.total_elevation_gain || 0).toFixed(0))} ft` : "-")}
     ${activityCard("Longest activity time", h.longestMovingTimeActivity, h.longestMovingTimeActivity ? formatDuration(h.longestMovingTimeActivity.moving_time || 0) : "-")}
@@ -1333,17 +1334,20 @@ function renderHighlights(rideInsights, gearDetails = {}) {
 function renderSegmentElevationHighlights(result, gearDetails = {}) {
   const container = document.getElementById("segment-elevation-grid");
   const input = document.getElementById("segment-elevation-min-attempts");
+  const excludedContainer = document.getElementById("segment-elevation-excluded");
   if (!container) return;
 
   if (input) {
     input.value = String(result?.minAttempts || 10);
   }
 
-  const excludedLinks = renderExcludedSegmentLinks();
+  if (excludedContainer) {
+    excludedContainer.innerHTML = renderExcludedSegmentLinks({ compact: true });
+  }
+
   const items = result?.items || [];
 
   container.innerHTML = `
-    ${excludedLinks}
     ${items.map(item => {
       if (item.empty) {
         return `
@@ -1434,7 +1438,9 @@ function buildMonthlyTrend(activities, metric) {
     else months[key].value += 1;
   });
 
-  return Object.values(months).sort((a, b) => a.sortKey - b.sortKey).slice(-12);
+  return Object.values(months)
+    .sort((a, b) => b.sortKey - a.sortKey)
+    .slice(0, 12);
 }
 
 function renderBarChart(containerId, items, formatter) {
@@ -2394,8 +2400,8 @@ function buildSegmentSummaryHighlights(data) {
   });
 
   const segments = Array.from(perSegment.values());
-  const mostAttempted = segments.sort((a, b) => b.attempts - a.attempts)[0] || null;
-  const mostPrs = segments.sort((a, b) => b.prCount - a.prCount)[0] || null;
+  const mostAttempted = [...segments].sort((a, b) => b.attempts - a.attempts)[0] || null;
+  const mostPrs = [...segments].sort((a, b) => b.prCount - a.prCount)[0] || null;
 
   return {
     totalSegments: segments.length,
@@ -2409,8 +2415,6 @@ function buildSegmentSummaryHighlights(data) {
 function renderSegmentSummaryHighlights(summary, gearDetails = {}) {
   const container = document.getElementById("segment-summary-grid");
   if (!container) return;
-
-  const excludedLinks = renderExcludedSegmentLinks();
 
   const statCard = (label, title, value, subtext = "") => `
     <div class="record-card">
@@ -2452,7 +2456,6 @@ function renderSegmentSummaryHighlights(summary, gearDetails = {}) {
   };
 
   container.innerHTML = `
-    ${excludedLinks}
     ${statCard("Tracked segments", comma(summary.totalSegments || 0), `${comma(summary.totalEfforts || 0)} efforts`, `${comma(summary.totalPrs || 0)} PRs across current filtered activities`)}
     ${segmentCard("Most attempted segment", summary.mostAttempted, summary.mostAttempted ? `${comma(summary.mostAttempted.attempts)} efforts` : "-")}
     ${segmentCard("Most PRs on one segment", summary.mostPrs, summary.mostPrs ? `${comma(summary.mostPrs.prCount)} PRs` : "-")}
@@ -2469,7 +2472,8 @@ function buildSegmentDistanceHighlights(data) {
     { key: "0.5-1", label: "0.5–1.0 mi", min: 0.5, max: 1.0 },
     { key: "1-2", label: "1.0–2.0 mi", min: 1.0, max: 2.0 },
     { key: "2-3", label: "2.0–3.0 mi", min: 2.0, max: 3.0 },
-    { key: "3plus", label: "3.0+ mi", min: 3.0, max: Infinity }
+    { key: "3-5", label: "3.0–5.0 mi", min: 3.0, max: 5.0 },
+    { key: "5plus", label: "5.0+ mi", min: 5.0, max: Infinity }
   ];
 
   function getBucketForDistanceMiles(distanceMiles) {
@@ -2552,7 +2556,10 @@ function renderSegmentDistanceHighlights(items, gearDetails = {}) {
   const container = document.getElementById("segment-distance-grid");
   if (!container) return;
 
+  const excludedLinks = renderExcludedSegmentLinks();
+
   container.innerHTML = `
+    ${excludedLinks}
     ${items.map(item => {
       if (item.empty) {
         return `
