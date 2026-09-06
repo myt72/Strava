@@ -63,11 +63,13 @@ body {
   background: var(--bg-2);
   color: var(--text);
   font-family: "Inter", "Segoe UI", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 #app-shell {
   display: grid;
-  grid-template-columns: 232px minmax(0, 1fr);
+  grid-template-columns: 236px minmax(0, 1fr);
   min-height: 100vh;
 }
 
@@ -75,9 +77,9 @@ body {
   position: sticky;
   top: 0;
   height: 100vh;
-  padding: 24px 18px;
+  padding: 26px 18px;
   border-right: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(18px);
 }
 
@@ -88,8 +90,8 @@ body.dark .side-rail {
 .brand-mark {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 22px;
+  gap: 13px;
+  margin-bottom: 24px;
 }
 
 .brand-orb {
@@ -124,8 +126,8 @@ body.dark .side-rail {
   color: var(--text-muted);
   text-decoration: none;
   font-weight: 600;
-  padding: 9px 11px;
-  border-radius: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
   transition: 0.2s ease;
 }
 
@@ -136,9 +138,9 @@ body.dark .side-rail {
 
 .side-meta {
   margin-top: auto;
-  padding: 12px;
+  padding: 13px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 15px;
   background: var(--surface);
   box-shadow: var(--shadow-soft);
 }
@@ -158,8 +160,8 @@ body.dark .side-rail {
 }
 
 #main {
-  padding: 22px;
-  max-width: 1560px;
+  padding: 24px;
+  max-width: 1680px;
   width: 100%;
 }
 
@@ -167,8 +169,8 @@ body.dark .side-rail {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 16px;
-  margin-bottom: 14px;
+  gap: 18px;
+  margin-bottom: 16px;
 }
 
 .eyebrow,
@@ -187,15 +189,16 @@ body.dark .side-rail {
 }
 
 .topbar h1 {
-  font-size: 36px;
+  font-size: 38px;
   line-height: 1.03;
+  letter-spacing: -0.03em;
 }
 
 .subtitle {
-  max-width: 700px;
-  margin: 8px 0 0;
+  max-width: 720px;
+  margin: 9px 0 0;
   color: var(--text-muted);
-  line-height: 1.5;
+  line-height: 1.55;
   font-size: 14px;
 }
 
@@ -211,11 +214,11 @@ body.dark .side-rail {
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 13px 16px;
   border-radius: 16px;
   margin-bottom: 18px;
   color: var(--text-muted);
-  min-height: 52px;
+  min-height: 54px;
 }
 
 #status {
@@ -226,7 +229,7 @@ body.dark .side-rail {
 #spinner {
   display: none;
   text-align: center;
-  margin: 16px 0;
+  margin: 18px 0;
 }
 
 .spinner-wheel {
@@ -385,8 +388,8 @@ body.dark .side-rail {
 }
 
 .card {
-  border-radius: var(--radius);
-  padding: 18px;
+  border-radius: 20px;
+  padding: 20px;
   margin-bottom: 18px;
 }
 
@@ -397,24 +400,25 @@ body.dark .side-rail {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 15px;
 }
 
 .card-title-wrap h2 {
-  font-size: 24px;
+  font-size: 25px;
   line-height: 1.08;
+  letter-spacing: -0.02em;
 }
 
 .hero-panel {
   display: grid;
-  grid-template-columns: 1.2fr 1fr;
+  grid-template-columns: 1.22fr 1fr;
   gap: 16px;
   margin-bottom: 18px;
 }
 
 .hero-main {
-  border-radius: 22px;
-  padding: 20px;
+  border-radius: 24px;
+  padding: 22px;
   position: relative;
   overflow: hidden;
 }
@@ -423,8 +427,8 @@ body.dark .side-rail {
   content: "";
   position: absolute;
   inset: -20% auto auto -10%;
-  width: 220px;
-  height: 220px;
+  width: 228px;
+  height: 228px;
   background: radial-gradient(circle, rgba(96, 176, 255, 0.28), transparent 60%);
   pointer-events: none;
 }
@@ -436,15 +440,16 @@ body.dark .side-rail {
 
 .hero-main h2 {
   margin: 8px 0 10px;
-  font-size: 30px;
+  font-size: 31px;
   line-height: 1.06;
+  letter-spacing: -0.03em;
 }
 
 .hero-insight {
   max-width: 720px;
   color: var(--text-muted);
   font-size: 14px;
-  line-height: 1.55;
+  line-height: 1.58;
   margin: 0;
 }
 
@@ -457,8 +462,8 @@ body.dark .side-rail {
 
 .hero-stat {
   border: 1px solid var(--border);
-  border-radius: 15px;
-  padding: 12px;
+  border-radius: 16px;
+  padding: 13px;
   background: rgba(255,255,255,0.04);
 }
 
@@ -474,6 +479,7 @@ body.dark .side-rail {
   font-size: 22px;
   font-weight: 800;
   margin-top: 6px;
+  letter-spacing: -0.02em;
 }
 
 .hero-stat-delta {
@@ -493,7 +499,7 @@ body.dark .side-rail {
 
 .kpi-card {
   border-radius: 18px;
-  padding: 16px 18px;
+  padding: 17px 18px;
   background: var(--surface);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-soft);
@@ -505,8 +511,8 @@ body.dark .side-rail {
   content: "";
   position: absolute;
   inset: auto -20px -30px auto;
-  width: 120px;
-  height: 120px;
+  width: 124px;
+  height: 124px;
   border-radius: 999px;
   opacity: 0.16;
   background: currentColor;
@@ -528,10 +534,11 @@ body.dark .side-rail {
 }
 
 .kpi-value {
-  font-size: 27px;
+  font-size: 28px;
   line-height: 1.05;
   font-weight: 800;
   color: var(--text);
+  letter-spacing: -0.02em;
 }
 
 .global-filters,
@@ -606,7 +613,7 @@ body.dark .side-rail {
   color: var(--text-muted);
   font-weight: 700;
   font-size: 13px;
-  padding: 7px 11px;
+  padding: 7px 12px;
   border-radius: 999px;
   cursor: pointer;
 }
@@ -628,8 +635,8 @@ body.dark .side-rail {
 }
 
 .chart-card {
-  border-radius: 16px;
-  padding: 16px;
+  border-radius: 18px;
+  padding: 17px;
   background: var(--surface-muted);
   border: 1px solid var(--border);
 }
@@ -702,7 +709,7 @@ body.dark .side-rail {
   display: flex;
   align-items: end;
   gap: 8px;
-  min-height: 210px;
+  min-height: 214px;
 }
 
 .timeline-bar-col,
@@ -718,7 +725,7 @@ body.dark .side-rail {
 .timeline-bar-track,
 .annual-strip-track {
   width: 100%;
-  height: 132px;
+  height: 134px;
   border-radius: 12px;
   background: rgba(255,255,255,0.06);
   display: flex;
@@ -781,7 +788,7 @@ body.dark .side-rail {
 }
 
 .record-card {
-  padding: 14px;
+  padding: 15px;
 }
 
 .record-label,
@@ -799,7 +806,8 @@ body.dark .side-rail {
 .highlight-bike {
   font-size: 17px;
   font-weight: 800;
-  line-height: 1.25;
+  line-height: 1.28;
+  letter-spacing: -0.01em;
 }
 
 .record-value,
@@ -819,7 +827,7 @@ body.dark .side-rail {
   margin-top: 7px;
   color: var(--text-muted);
   font-size: 12px;
-  line-height: 1.45;
+  line-height: 1.46;
 }
 
 .milestone-subsection {
@@ -841,6 +849,7 @@ body.dark .side-rail {
   font-size: 19px;
   font-weight: 800;
   line-height: 1.15;
+  letter-spacing: -0.015em;
 }
 
 .segment-threshold-toolbar {
@@ -1146,8 +1155,9 @@ body.dark .side-rail {
 }
 
 .annual-breakdown-item {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(88px, 120px) minmax(0, 1fr);
+  align-items: center;
   gap: 14px;
   padding: 10px 12px;
   border-radius: 12px;
@@ -1160,10 +1170,16 @@ body.dark .side-rail {
 }
 
 .annual-breakdown-metrics {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(110px, 1fr));
   gap: 10px;
-  flex-wrap: wrap;
+  align-items: center;
+}
+
+.annual-breakdown-metric {
   justify-content: flex-end;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .week-toggle-btn,
@@ -1216,6 +1232,7 @@ body.dark .side-rail {
   gap: 10px;
   font-size: 19px;
   font-weight: 800;
+  letter-spacing: -0.01em;
 }
 
 .bike-card-actions {
@@ -1260,7 +1277,7 @@ body.dark .side-rail {
 
 .bike-insights-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(244px, 1fr));
   gap: 10px;
   margin-top: 14px;
 }
@@ -1277,6 +1294,7 @@ body.dark .side-rail {
   font-size: 17px;
   font-weight: 800;
   color: var(--accent);
+  letter-spacing: -0.01em;
 }
 
 .bike-history-summary,
@@ -1297,7 +1315,7 @@ body.dark .side-rail {
 
 .bike-history-row {
   display: grid;
-  grid-template-columns: 74px 1fr auto;
+  grid-template-columns: 78px minmax(0, 1fr) auto;
   gap: 10px;
   align-items: start;
   padding: 10px 12px;
@@ -1312,9 +1330,17 @@ body.dark .side-rail {
 }
 
 .bike-history-col-metrics {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 8px;
+  align-items: stretch;
+}
+
+.bike-history-metric {
+  justify-content: center;
+  text-align: center;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .bike-weeks-container {
@@ -1383,6 +1409,7 @@ body.dark .side-rail {
 .featured-activity-title {
   font-size: 17px;
   font-weight: 800;
+  letter-spacing: -0.01em;
 }
 
 .featured-activities-grid {
@@ -1420,13 +1447,13 @@ body.dark .side-rail {
 
 #bike-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1.08fr));
+  gap: 16px;
 }
 
 @media (max-width: 1280px) {
   #main {
-    padding: 20px;
+    padding: 22px;
   }
 
   .hero-panel {
@@ -1439,6 +1466,10 @@ body.dark .side-rail {
 
   #bike-grid {
     grid-template-columns: 1fr;
+  }
+
+  .bike-history-col-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -1478,6 +1509,10 @@ body.dark .side-rail {
     grid-template-columns: 1fr;
   }
 
+  .bike-history-col-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .bike-insight-label {
     white-space: normal;
   }
@@ -1493,7 +1528,7 @@ body.dark .side-rail {
   }
 
   .card {
-    padding: 14px;
+    padding: 15px;
     margin-bottom: 14px;
   }
 
@@ -1512,7 +1547,7 @@ body.dark .side-rail {
   }
 
   .hero-main {
-    padding: 16px;
+    padding: 17px;
   }
 
   .hero-main h2 {
@@ -1586,9 +1621,23 @@ body.dark .side-rail {
 
   .bike-summary-metrics,
   .metric-row,
-  .featured-activity-metrics,
-  .annual-breakdown-metrics {
+  .featured-activity-metrics {
     gap: 7px;
+  }
+
+  .annual-breakdown-item {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .annual-breakdown-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .annual-breakdown-metric {
+    justify-content: flex-start;
+    text-align: left;
   }
 }
 
@@ -1644,5 +1693,10 @@ body.dark .side-rail {
   .featured-activity-card,
   .comparison-mobile-card {
     padding: 12px;
+  }
+
+  .annual-breakdown-metrics,
+  .bike-history-col-metrics {
+    grid-template-columns: 1fr;
   }
 }
