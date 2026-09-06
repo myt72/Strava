@@ -1,403 +1,1648 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Mark YT Strava Dashboard</title>
-  <link rel="stylesheet" href="styles.css" />
-</head>
-<body>
-  <div id="app-shell">
-    <aside class="side-rail">
-      <div class="brand-mark">
-        <div class="brand-orb"></div>
-        <div>
-          <div class="brand-kicker">Performance OS</div>
-          <div class="brand-title">Strava Dashboard</div>
-        </div>
-      </div>
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
 
-      <nav class="side-nav">
-        <a href="#hero-panel">Overview</a>
-        <a href="#training-patterns-card">Training</a>
-        <a href="#records-card">Records</a>
-        <a href="#annual-card">Trends</a>
-        <a href="#featured-activities-card">Featured</a>
-        <a href="#bike-grid">Bikes</a>
-      </nav>
+:root {
+  --bg: #f3f7ff;
+  --bg-2: radial-gradient(circle at top right, rgba(98, 168, 255, 0.18), transparent 30%), radial-gradient(circle at top left, rgba(176, 108, 255, 0.14), transparent 28%), linear-gradient(180deg, #f7fbff 0%, #eef4ff 100%);
+  --surface: rgba(255, 255, 255, 0.82);
+  --surface-strong: rgba(255, 255, 255, 0.92);
+  --surface-muted: rgba(243, 248, 255, 0.92);
+  --surface-deep: #e9f0fc;
+  --text: #111827;
+  --text-muted: #5d6980;
+  --border: rgba(121, 143, 183, 0.24);
+  --accent: #4f8cff;
+  --accent-2: #9b6bff;
+  --distance: #5bb6ff;
+  --time: #ffb347;
+  --elevation: #7aeea1;
+  --danger: #e45a5a;
+  --success: #40c980;
+  --warning: #f3aa3c;
+  --shadow: 0 20px 60px rgba(16, 24, 40, 0.10);
+  --shadow-soft: 0 12px 28px rgba(16, 24, 40, 0.08);
+  --radius: 18px;
+  --radius-sm: 12px;
+  --glass: blur(20px);
+}
 
-      <div class="side-meta">
-        <div class="side-meta-label">Data status</div>
-        <div id="last-sync-side" class="side-meta-value">Waiting for sync…</div>
-      </div>
-    </aside>
+body.dark {
+  --bg: #08101c;
+  --bg-2: radial-gradient(circle at top right, rgba(70, 130, 255, 0.18), transparent 24%), radial-gradient(circle at top left, rgba(165, 92, 255, 0.14), transparent 28%), linear-gradient(180deg, #09111d 0%, #0f1728 100%);
+  --surface: rgba(17, 27, 46, 0.76);
+  --surface-strong: rgba(21, 33, 56, 0.9);
+  --surface-muted: rgba(19, 31, 52, 0.84);
+  --surface-deep: #101b2e;
+  --text: #edf3ff;
+  --text-muted: #9cadc8;
+  --border: rgba(106, 134, 189, 0.20);
+  --accent: #6cabff;
+  --accent-2: #af7cff;
+  --distance: #67c7ff;
+  --time: #ffc56b;
+  --elevation: #5ff0a8;
+  --danger: #ff7b7b;
+  --success: #5be59d;
+  --warning: #ffbb55;
+  --shadow: 0 24px 60px rgba(0, 0, 0, 0.40);
+  --shadow-soft: 0 16px 36px rgba(0, 0, 0, 0.28);
+}
 
-    <main id="main">
-      <header class="topbar">
-        <div>
-          <div class="eyebrow">My Strava Dashboard</div>
-          <h1>Fitness Intelligence</h1>
-          <p class="subtitle">
-            A modern performance dashboard for training patterns, records, bike usage, and long-term progression.
-          </p>
-        </div>
+* {
+  box-sizing: border-box;
+}
 
-        <div class="utility-actions">
-          <button
-            id="theme-toggle"
-            class="menu-trigger secondary-trigger"
-            title="Toggle theme"
-            onclick="toggleTheme()"
-          >
-            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-              <circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"></circle>
-              <path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"></path>
-            </svg>
-          </button>
+html {
+  scroll-behavior: smooth;
+}
 
-          <div class="advanced-actions-menu">
-            <button
-              id="advanced-menu-trigger"
-              class="menu-trigger"
-              onclick="toggleAdvancedMenu()"
-              title="Advanced Actions"
-            >
-              <span class="menu-trigger-icon-wrap">
-                <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-                  <circle cx="6" cy="12" r="2" fill="currentColor"></circle>
-                  <circle cx="12" cy="12" r="2" fill="currentColor"></circle>
-                  <circle cx="18" cy="12" r="2" fill="currentColor"></circle>
-                </svg>
-                <span id="pr-backfill-menu-badge" class="menu-status-badge" style="display:none;"></span>
-              </span>
-            </button>
+body {
+  margin: 0;
+  background: var(--bg-2);
+  color: var(--text);
+  font-family: "Inter", "Segoe UI", Arial, sans-serif;
+}
 
-            <div id="advanced-menu" class="dropdown-menu">
-              <button class="dropdown-item" onclick="refreshData(); toggleAdvancedMenu()">
-                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M20 12a8 8 0 1 1-2.34-5.66" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
-                  <path d="M20 4v6h-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                </svg>
-                Refresh (only new activities + PR data)
-              </button>
+#app-shell {
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  min-height: 100vh;
+}
 
-              <button class="dropdown-item" onclick="resumePull(); toggleAdvancedMenu()">
-                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M9 7L4 12l5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                  <path d="M20 6v6a6 6 0 0 1-6 6H4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
-                </svg>
-                Resume Pull (fill gaps)
-              </button>
+.side-rail {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  padding: 24px 18px;
+  border-right: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(18px);
+}
 
-              <button class="dropdown-item" onclick="fullPull(); toggleAdvancedMenu()">
-                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M4 4v6h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                  <path d="M20 20v-6h-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                  <path d="M20 10A8 8 0 0 0 6.34 4.34L4 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
-                  <path d="M4 14a8 8 0 0 0 13.66 5.66L20 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
-                </svg>
-                Full Data Pull
-              </button>
+body.dark .side-rail {
+  background: rgba(8, 14, 26, 0.45);
+}
 
-              <button class="dropdown-item" onclick="startPrBackfill()">
-                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M7 4a3 3 0 1 1 0 6a3 3 0 0 1 0-6zm0 10a3 3 0 1 1 0 6a3 3 0 0 1 0-6zm10-5a3 3 0 1 1 0 6a3 3 0 0 1 0-6z" fill="none" stroke="currentColor" stroke-width="2"></path>
-                  <path d="M10 7h4M10 17h4M17 12h0" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
-                </svg>
-                Pull PR Data (background job)
-              </button>
+.brand-mark {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 22px;
+}
 
-              <div class="dropdown-divider"></div>
+.brand-orb {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: 0 0 20px rgba(108, 171, 255, 0.8);
+}
 
-              <div id="pr-backfill-admin-panel" class="dropdown-admin-panel">
-                <div class="dropdown-admin-header">
-                  <div class="dropdown-admin-title">PR Backfill</div>
-                  <button id="stop-pr-backfill-btn" class="dropdown-admin-stop" type="button" onclick="stopPrBackfill()">
-                    Stop
-                  </button>
-                </div>
+.brand-kicker {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 700;
+}
 
-                <div id="pr-backfill-admin-content" class="dropdown-admin-content">
-                  <div class="dropdown-admin-empty">No PR backfill activity yet.</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+.brand-title {
+  font-size: 18px;
+  font-weight: 700;
+}
 
-      <div class="status-bar glass-card">
-        <div id="status"></div>
-        <div id="last-sync"></div>
-      </div>
+.side-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 24px;
+}
 
-      <div id="spinner">
-        <div class="spinner-wheel"></div>
-      </div>
+.side-nav a {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-weight: 600;
+  padding: 9px 11px;
+  border-radius: 10px;
+  transition: 0.2s ease;
+}
 
-      <section id="global-filter-card" class="card glass-card">
-        <div class="card-header">
-          <div class="card-title-wrap">
-            <span class="card-kicker">Global Filters</span>
-            <h2>Explore your data</h2>
-          </div>
-        </div>
+.side-nav a:hover {
+  color: var(--text);
+  background: var(--surface-muted);
+}
 
-        <div class="global-filters">
-          <div class="filter-field">
-            <label for="global-date-range">Date range</label>
-            <select id="global-date-range" onchange="handleGlobalFilterChange()">
-              <option value="all">All time</option>
-              <option value="365">Last 365 days</option>
-              <option value="180">Last 180 days</option>
-              <option value="90">Last 90 days</option>
-              <option value="30">Last 30 days</option>
-            </select>
-          </div>
+.side-meta {
+  margin-top: auto;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+}
 
-          <div class="filter-field">
-            <label for="global-activity-type">Activity type</label>
-            <select id="global-activity-type" onchange="handleGlobalFilterChange()">
-              <option value="all">All activity types</option>
-            </select>
-          </div>
+.side-meta-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  font-weight: 700;
+}
 
-          <div class="filter-field">
-            <label for="global-bike">Bike</label>
-            <select id="global-bike" onchange="handleGlobalFilterChange()">
-              <option value="all">All bikes</option>
-            </select>
-          </div>
+.side-meta-value {
+  font-size: 13px;
+  line-height: 1.45;
+}
 
-          <div class="filter-field">
-            <label for="hero-metric-mode">Primary metric</label>
-            <select id="hero-metric-mode" onchange="handleGlobalFilterChange()">
-              <option value="distance">Distance</option>
-              <option value="moving_time">Time</option>
-              <option value="elevation">Elevation</option>
-              <option value="count">Activities</option>
-            </select>
-          </div>
-        </div>
-      </section>
+#main {
+  padding: 22px;
+  max-width: 1560px;
+  width: 100%;
+}
 
-      <section id="hero-panel" class="hero-panel">
-        <div class="hero-main glass-card">
-          <div class="hero-copy">
-            <div class="hero-kicker">Training Pulse</div>
-            <h2 id="hero-title">Loading your training intelligence…</h2>
-            <p id="hero-insight" class="hero-insight">
-              Analyzing activities, bikes, effort distribution, and long-term trends.
-            </p>
-          </div>
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 14px;
+}
 
-          <div id="hero-period-stats" class="hero-period-stats"></div>
-        </div>
+.eyebrow,
+.card-kicker,
+.hero-kicker {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--accent);
+}
 
-        <div id="kpi-summary" class="kpi-grid"></div>
-      </section>
+.topbar h1,
+.card-title-wrap h2 {
+  margin: 6px 0 0;
+}
 
-      <section id="training-patterns-card" class="card glass-card">
-        <div class="card-header">
-          <div class="card-title-wrap">
-            <span class="card-kicker">Training Patterns</span>
-            <h2>When and how you train</h2>
-          </div>
-        </div>
+.topbar h1 {
+  font-size: 36px;
+  line-height: 1.03;
+}
 
-        <div class="chart-toolbar chart-toolbar-split">
-          <div class="toolbar-group">
-            <span class="toolbar-label">Day / time metric</span>
-            <div class="segmented-control">
-              <button class="segmented-btn active" data-pattern-metric="distance" onclick="setPatternMetric('distance')">Miles</button>
-              <button class="segmented-btn" data-pattern-metric="moving_time" onclick="setPatternMetric('moving_time')">Hours</button>
-              <button class="segmented-btn" data-pattern-metric="count" onclick="setPatternMetric('count')">Count</button>
-            </div>
-          </div>
+.subtitle {
+  max-width: 700px;
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  line-height: 1.5;
+  font-size: 14px;
+}
 
-          <div class="toolbar-group">
-            <span class="toolbar-label">Monthly trend metric</span>
-            <div class="segmented-control">
-              <button class="segmented-btn active" data-monthly-metric="distance" onclick="setMonthlyTrendMetric('distance')">Distance</button>
-              <button class="segmented-btn" data-monthly-metric="elevation" onclick="setMonthlyTrendMetric('elevation')">Elevation</button>
-              <button class="segmented-btn" data-monthly-metric="moving_time" onclick="setMonthlyTrendMetric('moving_time')">Moving Time</button>
-            </div>
-          </div>
-        </div>
+.glass-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  backdrop-filter: var(--glass);
+}
 
-        <div class="training-grid">
-          <div class="chart-card">
-            <div class="chart-card-header">
-              <h3>By day of week</h3>
-              <div class="chart-card-subtitle">Find your most consistent training days</div>
-            </div>
-            <div id="weekday-chart" class="bar-chart"></div>
-          </div>
+.status-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  margin-bottom: 18px;
+  color: var(--text-muted);
+  min-height: 52px;
+}
 
-          <div class="chart-card">
-            <div class="chart-card-header">
-              <h3>By time of day</h3>
-              <div class="chart-card-subtitle">Morning vs afternoon vs evening rhythm</div>
-            </div>
-            <div id="timeofday-chart" class="bar-chart"></div>
-          </div>
+#status {
+  font-weight: 700;
+  color: var(--accent);
+}
 
-          <div class="chart-card chart-span-2">
-            <div class="chart-card-header">
-              <h3>Monthly trend</h3>
-              <div class="chart-card-subtitle">Switch between distance, elevation, and moving time</div>
-            </div>
-            <div id="monthly-trend-chart" class="timeline-bars"></div>
-          </div>
-        </div>
-      </section>
+#spinner {
+  display: none;
+  text-align: center;
+  margin: 16px 0;
+}
 
-      <section id="records-card" class="card glass-card">
-        <div class="card-header">
-          <div class="card-title-wrap">
-            <span class="card-kicker">Milestones</span>
-            <h2>Records & standout efforts</h2>
-          </div>
-        </div>
+.spinner-wheel {
+  display: inline-block;
+  border: 4px solid rgba(255,255,255,0.15);
+  border-top: 4px solid var(--accent);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
 
-        <div id="records-grid" class="records-grid"></div>
+.utility-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
 
-        <div class="milestone-subsection">
-          <div class="milestone-subsection-header">
-            <div>
-              <h3 class="milestone-subsection-title">Segment summary</h3>
-              <div class="chart-card-subtitle">Segment PRs and effort summaries from the current filtered view</div>
-            </div>
-          </div>
-          <div id="segment-summary-grid" class="records-grid"></div>
-        </div>
+.advanced-actions-menu {
+  position: relative;
+  display: inline-block;
+}
 
-        <div class="milestone-subsection">
-          <div class="milestone-subsection-header">
-            <div>
-              <h3 class="milestone-subsection-title">By distance</h3>
-              <div class="chart-card-subtitle">Segment counts and standout efforts by distance bucket</div>
-            </div>
-          </div>
-          <div id="segment-distance-grid" class="records-grid"></div>
-        </div>
+.menu-trigger {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: white;
+  border: none;
+  padding: 10px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-soft);
+}
 
-        <div class="milestone-subsection">
-          <div class="milestone-subsection-header">
-            <div>
-              <h3 class="milestone-subsection-title">Most efforts by elevation</h3>
-              <div class="chart-card-subtitle">Top repeated segments grouped by elevation bucket</div>
-            </div>
-          </div>
+.secondary-trigger {
+  background: var(--surface-strong);
+  color: var(--accent);
+  border: 1px solid var(--border);
+}
 
-          <div class="segment-threshold-toolbar">
-            <div class="segment-threshold-toolbar-main">
-              <div class="segment-threshold-field">
-                <label for="segment-elevation-min-attempts">Minimum efforts</label>
-                <input
-                  id="segment-elevation-min-attempts"
-                  type="number"
-                  min="1"
-                  step="1"
-                  value="10"
-                  onchange="handleSegmentElevationMinAttemptsChange()"
-                />
-              </div>
-              <div class="segment-controls-note">
-                Results update when this value changes. Default is 10.
-              </div>
-            </div>
+.menu-trigger-icon-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
 
-            <div id="segment-elevation-excluded" class="segment-threshold-toolbar-side"></div>
-          </div>
+.menu-status-badge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border: 2px solid var(--surface);
+  background: var(--warning);
+}
 
-          <div id="segment-elevation-grid" class="records-grid"></div>
-        </div>
-      </section>
+.menu-status-badge.complete {
+  background: var(--success);
+}
 
-      <section id="distribution-card" class="card glass-card">
-        <div class="card-header">
-          <div class="card-title-wrap">
-            <span class="card-kicker">Distribution</span>
-            <h2>What your training is made of</h2>
-          </div>
-        </div>
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 320px;
+  display: none;
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  z-index: 200;
+  backdrop-filter: blur(20px);
+}
 
-        <div class="distribution-grid">
-          <div class="chart-card chart-span-2">
-            <div class="chart-card-header">
-              <h3>Activity types</h3>
-              <div class="chart-card-subtitle">Share of total activity count</div>
-            </div>
-            <div id="activity-type-share" class="stack-list"></div>
-          </div>
-        </div>
-      </section>
+.dropdown-menu.open {
+  display: block;
+}
 
-      <section id="annual-card" class="card glass-card">
-        <div class="card-header">
-          <div class="card-title-wrap">
-            <span class="card-kicker">Long-Term Trends</span>
-            <h2>Annual progression</h2>
-          </div>
-        </div>
+.dropdown-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  padding: 13px 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
 
-        <div class="annual-controls">
-          <div class="annual-controls-label">Filter activity types</div>
-          <div id="activity-type-checkboxes" class="filter-chip-group"></div>
-        </div>
+.dropdown-item:hover {
+  background: var(--surface-muted);
+}
 
-        <div id="annual-summary-strip" class="annual-summary-strip"></div>
-        <div id="annual-stats-table"></div>
-      </section>
+.dropdown-divider {
+  height: 1px;
+  background: var(--border);
+}
 
-      <section id="featured-activities-card" class="card glass-card">
-        <div class="card-header">
-          <div class="card-title-wrap">
-            <span class="card-kicker">Story Mode</span>
-            <h2>Featured activities</h2>
-          </div>
-        </div>
-        <div id="featured-activities-content"></div>
-      </section>
+.dropdown-admin-panel {
+  padding: 12px 14px 14px;
+  background: var(--surface-muted);
+}
 
-      <div id="bike-comparison-section" class="card comparison-panel glass-card">
-        <div id="comparison-content"></div>
-      </div>
+.dropdown-admin-header,
+.dropdown-admin-status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
 
-      <div class="card bike-controls-card glass-card">
-        <div class="bike-controls">
-          <input id="bike-search" type="text" placeholder="Search bikes..." oninput="updateBikeFilters()" />
-          <select id="bike-sort" onchange="updateBikeFilters()">
-            <option value="distance-desc">Sort: Distance (high to low)</option>
-            <option value="distance-asc">Sort: Distance (low to high)</option>
-            <option value="rides-desc">Sort: Activities (high to low)</option>
-            <option value="rides-asc">Sort: Activities (low to high)</option>
-            <option value="name-asc">Sort: Name (A-Z)</option>
-            <option value="name-desc">Sort: Name (Z-A)</option>
-          </select>
-        </div>
-      </div>
+.dropdown-admin-header {
+  margin-bottom: 10px;
+}
 
-      <div id="bike-grid" class="card-grid"></div>
-    </main>
-  </div>
+.dropdown-admin-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
 
-  <script>
-    function toggleAdvancedMenu() {
-      const menu = document.getElementById("advanced-menu");
-      if (menu) menu.classList.toggle("open");
-    }
+.dropdown-admin-stop {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--danger);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
 
-    document.addEventListener("click", function(event) {
-      const menu = document.getElementById("advanced-menu");
-      const trigger = document.getElementById("advanced-menu-trigger");
-      if (menu && trigger && !menu.contains(event.target) && !trigger.contains(event.target)) {
-        menu.classList.remove("open");
-      }
-    });
-  </script>
+.dropdown-admin-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 
-  <script src="app.js"></script>
-</body>
-</html>
+.dropdown-admin-label,
+.dropdown-admin-empty,
+.dropdown-admin-note {
+  color: var(--text-muted);
+}
+
+.dropdown-admin-value {
+  font-weight: 700;
+}
+
+.card {
+  border-radius: var(--radius);
+  padding: 18px;
+  margin-bottom: 18px;
+}
+
+.card-header {
+  font-size: 20px;
+  font-weight: 700;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.card-title-wrap h2 {
+  font-size: 24px;
+  line-height: 1.08;
+}
+
+.hero-panel {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.hero-main {
+  border-radius: 22px;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-main::before {
+  content: "";
+  position: absolute;
+  inset: -20% auto auto -10%;
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(circle, rgba(96, 176, 255, 0.28), transparent 60%);
+  pointer-events: none;
+}
+
+.hero-copy {
+  position: relative;
+  z-index: 1;
+}
+
+.hero-main h2 {
+  margin: 8px 0 10px;
+  font-size: 30px;
+  line-height: 1.06;
+}
+
+.hero-insight {
+  max-width: 720px;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.hero-period-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.hero-stat {
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  padding: 12px;
+  background: rgba(255,255,255,0.04);
+}
+
+.hero-stat-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.hero-stat-value {
+  font-size: 22px;
+  font-weight: 800;
+  margin-top: 6px;
+}
+
+.hero-stat-delta {
+  font-size: 12px;
+  margin-top: 6px;
+  font-weight: 700;
+}
+
+.hero-stat-delta.positive { color: var(--success); }
+.hero-stat-delta.negative { color: var(--danger); }
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.kpi-card {
+  border-radius: 18px;
+  padding: 16px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-soft);
+  position: relative;
+  overflow: hidden;
+}
+
+.kpi-card::after {
+  content: "";
+  position: absolute;
+  inset: auto -20px -30px auto;
+  width: 120px;
+  height: 120px;
+  border-radius: 999px;
+  opacity: 0.16;
+  background: currentColor;
+  filter: blur(34px);
+}
+
+.neon-distance { color: var(--distance); }
+.neon-time { color: var(--time); }
+.neon-elevation { color: var(--elevation); }
+.neon-accent { color: var(--accent); }
+
+.kpi-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.kpi-value {
+  font-size: 27px;
+  line-height: 1.05;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.global-filters,
+.bike-controls,
+.annual-controls {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: end;
+}
+
+.filter-field {
+  min-width: 170px;
+  flex: 1;
+}
+
+.filter-field label,
+.annual-controls-label,
+.toolbar-label {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.filter-field select,
+.bike-controls input,
+.bike-controls select,
+.segment-threshold-field input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 11px 13px;
+  font-size: 14px;
+  background: var(--surface-strong);
+  color: var(--text);
+}
+
+.chart-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 14px;
+}
+
+.chart-toolbar-split {
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.toolbar-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.segmented-control {
+  display: inline-flex;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.segmented-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 13px;
+  padding: 7px 11px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.segmented-btn.active {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: white;
+}
+
+.training-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.distribution-grid {
+  display: block;
+  max-width: 760px;
+}
+
+.chart-card {
+  border-radius: 16px;
+  padding: 16px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+}
+
+.chart-span-2 {
+  grid-column: span 2;
+}
+
+.chart-card-header h3 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.chart-card-subtitle {
+  margin-top: 5px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.bar-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr) 84px;
+  gap: 10px;
+  align-items: center;
+}
+
+.bar-label,
+.bar-value {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.bar-value {
+  text-align: right;
+  color: var(--text-muted);
+}
+
+.bar-track,
+.stack-list-track {
+  position: relative;
+  height: 11px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden;
+}
+
+.bar-fill,
+.stack-list-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+
+.timeline-bars {
+  margin-top: 16px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.timeline-bars-wrap,
+.annual-strip-chart {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  min-height: 210px;
+}
+
+.timeline-bar-col,
+.annual-strip-col {
+  min-width: 68px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+
+.timeline-bar-track,
+.annual-strip-track {
+  width: 100%;
+  height: 132px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.06);
+  display: flex;
+  align-items: end;
+  overflow: hidden;
+}
+
+.timeline-bar-fill,
+.annual-strip-fill {
+  width: 100%;
+  border-radius: 12px 12px 0 0;
+  background: linear-gradient(180deg, var(--accent), var(--accent-2));
+}
+
+.timeline-bars-wrap.tone-distance .timeline-bar-fill {
+  background: linear-gradient(180deg, #54bfff, #6d86ff);
+}
+
+.timeline-bars-wrap.tone-time .timeline-bar-fill {
+  background: linear-gradient(180deg, #ffcf6a, #ff9e57);
+}
+
+.timeline-bars-wrap.tone-elevation .timeline-bar-fill {
+  background: linear-gradient(180deg, #67f2b0, #41c983);
+}
+
+.timeline-bar-value,
+.annual-strip-top {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.timeline-bar-label,
+.annual-strip-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.annual-strip-sub {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.records-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 12px;
+}
+
+.record-card,
+.highlight-card,
+.featured-activity-card,
+.comparison-mobile-card,
+.bike-insight-card {
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+.record-card {
+  padding: 14px;
+}
+
+.record-label,
+.highlight-label,
+.bike-insight-label {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 7px;
+}
+
+.record-title,
+.highlight-bike {
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.record-value,
+.highlight-value,
+.bike-insight-value {
+  margin-top: 7px;
+  font-size: 14px;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.record-subtext,
+.highlight-subtext,
+.bike-insight-sub,
+.featured-activity-caption,
+.empty-state {
+  margin-top: 7px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.milestone-subsection {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.milestone-subsection-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.milestone-subsection-title {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.segment-threshold-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.segment-threshold-toolbar-main {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  flex-wrap: wrap;
+  flex: 1 1 320px;
+}
+
+.segment-threshold-toolbar-side {
+  flex: 1 1 320px;
+  min-width: 260px;
+}
+
+.segment-threshold-field {
+  min-width: 168px;
+  max-width: 210px;
+}
+
+.segment-controls-row {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.segment-controls-note,
+.segment-id-label {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.segment-inline-action,
+.segment-restore-chip {
+  border: 1px solid var(--border);
+  background: var(--surface-strong);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 7px 11px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.segment-inline-action:hover,
+.segment-restore-chip:hover {
+  background: var(--surface-muted);
+}
+
+.segment-excluded-bar {
+  grid-column: 1 / -1;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.segment-excluded-bar-compact {
+  grid-column: auto;
+  padding: 11px 12px;
+}
+
+.segment-excluded-label {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+}
+
+.segment-excluded-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.segment-last-ride-block {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.segment-last-ride-title {
+  margin-top: 6px;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.segment-last-ride-link,
+.featured-activity-link,
+.highlight-activity-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.segment-last-ride-link:hover,
+.featured-activity-link:hover,
+.highlight-activity-link:hover {
+  text-decoration: underline;
+}
+
+.segment-last-ride-subtext,
+.segment-last-ride-date,
+.segment-last-ride-empty,
+.segment-activity-ref-subtext {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.segment-activity-ref {
+  margin-top: 8px;
+}
+
+.segment-activity-ref-title {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.stack-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.stack-list-row {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.stack-list-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.annual-summary-strip {
+  margin-bottom: 16px;
+}
+
+#activity-type-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filter-chip label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  padding: 8px 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-muted);
+  font-size: 13px;
+}
+
+.filter-chip input[type="checkbox"],
+.bike-checkbox {
+  accent-color: var(--accent);
+}
+
+.annual-breakdown-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.annual-breakdown-toolbar-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.annual-breakdown-mode-toggle {
+  display: inline-flex;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-muted);
+}
+
+.annual-breakdown-mode-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 6px 11px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.annual-breakdown-mode-btn.active {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: white;
+}
+
+.annual-stats-rows,
+.annual-year-block,
+.bike-history-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.annual-stats-row {
+  display: grid;
+  grid-template-columns:
+    minmax(72px, 86px)
+    repeat(4, minmax(0, 1fr))
+    minmax(110px, 0.95fr)
+    minmax(110px, 0.95fr)
+    minmax(120px, 1fr)
+    minmax(120px, 1fr)
+    56px;
+  gap: 10px;
+  align-items: center;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-muted);
+}
+
+.annual-stats-row-header {
+  background: transparent;
+  border: none;
+  padding: 0 12px 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.annual-stats-row-total {
+  background: var(--surface-deep);
+}
+
+.annual-col-year {
+  font-weight: 700;
+}
+
+.annual-col-metric,
+.annual-breakdown-metric,
+.metric,
+.bike-summary-metric,
+.bike-history-metric,
+.featured-activity-metric {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.annual-col-toggle {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.annual-year-breakdown,
+.bike-history-panel,
+.bike-weeks-container {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-strong);
+  border-radius: 14px;
+}
+
+.annual-breakdown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.annual-breakdown-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+}
+
+.annual-breakdown-label {
+  font-weight: 700;
+}
+
+.annual-breakdown-metrics {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.week-toggle-btn,
+.history-toggle-btn,
+.pin-button,
+.clear-comparison {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 7px 11px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.chevron-icon {
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+
+.week-toggle-btn.open .chevron-icon,
+.history-toggle-btn.open .chevron-icon {
+  transform: rotate(225deg);
+}
+
+.bike-card-summary {
+  position: relative;
+  overflow: hidden;
+}
+
+.accent-bar {
+  height: 4px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  border-radius: 999px;
+  margin-bottom: 12px;
+}
+
+.bike-card-header {
+  margin-bottom: 10px;
+}
+
+.bike-header-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.bike-card-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.pin-button.pinned {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: white;
+  border-color: transparent;
+}
+
+.compare-checkbox-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.bike-summary-metrics,
+.metric-row,
+.featured-activity-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bike-summary-metric,
+.bike-history-metric,
+.featured-activity-metric,
+.metric {
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.bike-insights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.bike-insight-card {
+  padding: 13px;
+}
+
+.bike-insight-label {
+  white-space: nowrap;
+}
+
+.bike-insight-value {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--accent);
+}
+
+.bike-history-summary,
+.comparison-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.bike-history-meta {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.bike-history-row {
+  display: grid;
+  grid-template-columns: 74px 1fr auto;
+  gap: 10px;
+  align-items: start;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-muted);
+}
+
+.bike-history-col-year {
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.bike-history-col-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bike-weeks-container {
+  margin-top: 8px;
+}
+
+.week-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.week-row:last-child {
+  border-bottom: none;
+}
+
+.week-label {
+  font-weight: 800;
+}
+
+.trend-up {
+  color: var(--success);
+  font-weight: 700;
+}
+
+.trend-down {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.comparison-panel {
+  display: none;
+}
+
+.comparison-table-wrap {
+  overflow-x: auto;
+}
+
+.comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.comparison-table th,
+.comparison-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  font-size: 13px;
+}
+
+.comparison-mobile {
+  display: none;
+  margin-top: 14px;
+  gap: 10px;
+}
+
+.comparison-mobile-card {
+  padding: 14px;
+}
+
+.comparison-mobile-title,
+.featured-activity-title {
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.featured-activities-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.featured-activity-card {
+  padding: 14px;
+}
+
+.featured-activity-body {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.featured-activity-link-disabled {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.icon-lg {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+}
+
+#bike-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 1280px) {
+  #main {
+    padding: 20px;
+  }
+
+  .hero-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .kpi-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  #bike-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1100px) {
+  #app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .side-rail {
+    position: static;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 18px 20px;
+  }
+
+  .side-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .hero-panel,
+  .training-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-span-2 {
+    grid-column: auto;
+  }
+
+  .annual-stats-row {
+    grid-template-columns: 1fr;
+  }
+
+  .bike-history-row {
+    grid-template-columns: 1fr;
+  }
+
+  .bike-insight-label {
+    white-space: normal;
+  }
+
+  .kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  #main {
+    padding: 14px;
+  }
+
+  .card {
+    padding: 14px;
+    margin-bottom: 14px;
+  }
+
+  .topbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .topbar h1 {
+    font-size: 30px;
+  }
+
+  .subtitle {
+    font-size: 13px;
+  }
+
+  .hero-main {
+    padding: 16px;
+  }
+
+  .hero-main h2 {
+    font-size: 26px;
+  }
+
+  .hero-period-stats,
+  .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .global-filters,
+  .bike-controls,
+  .annual-controls {
+    gap: 10px;
+  }
+
+  .comparison-table-wrap {
+    display: none;
+  }
+
+  .comparison-mobile {
+    display: grid;
+  }
+
+  .bar-row {
+    grid-template-columns: 64px minmax(0, 1fr) 64px;
+    gap: 8px;
+  }
+
+  .timeline-bar-col,
+  .annual-strip-col {
+    min-width: 58px;
+  }
+
+  .timeline-bar-track,
+  .annual-strip-track {
+    height: 112px;
+  }
+
+  .segment-controls-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .segment-inline-action {
+    width: auto;
+  }
+
+  .segment-threshold-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .segment-threshold-toolbar-main,
+  .segment-threshold-toolbar-side {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .records-grid,
+  .featured-activities-grid,
+  #bike-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dropdown-menu {
+    width: min(320px, calc(100vw - 28px));
+    right: 0;
+  }
+
+  .bike-summary-metrics,
+  .metric-row,
+  .featured-activity-metrics,
+  .annual-breakdown-metrics {
+    gap: 7px;
+  }
+}
+
+@media (max-width: 520px) {
+  .side-rail {
+    padding: 16px 14px;
+  }
+
+  .side-nav a {
+    width: 100%;
+    text-align: center;
+  }
+
+  .utility-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .status-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 12px 14px;
+  }
+
+  .filter-field,
+  .segment-threshold-field {
+    min-width: 100%;
+    max-width: 100%;
+  }
+
+  .segmented-control {
+    width: 100%;
+  }
+
+  .segmented-btn {
+    flex: 1 1 auto;
+    text-align: center;
+  }
+
+  .record-title,
+  .highlight-bike,
+  .comparison-mobile-title,
+  .featured-activity-title {
+    font-size: 16px;
+  }
+
+  .bike-header-content {
+    font-size: 17px;
+  }
+
+  .bike-insight-card,
+  .record-card,
+  .featured-activity-card,
+  .comparison-mobile-card {
+    padding: 12px;
+  }
+}
