@@ -291,20 +291,24 @@
           </div>
 
           <div class="segment-threshold-toolbar">
-            <div class="segment-threshold-field">
-              <label for="segment-elevation-min-attempts">Minimum efforts</label>
-              <input
-                id="segment-elevation-min-attempts"
-                type="number"
-                min="1"
-                step="1"
-                value="10"
-                onchange="handleSegmentElevationMinAttemptsChange()"
-              />
+            <div class="segment-threshold-toolbar-main">
+              <div class="segment-threshold-field">
+                <label for="segment-elevation-min-attempts">Minimum efforts</label>
+                <input
+                  id="segment-elevation-min-attempts"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value="10"
+                  onchange="handleSegmentElevationMinAttemptsChange()"
+                />
+              </div>
+              <div class="segment-controls-note">
+                Results update when this value changes. Default is 10.
+              </div>
             </div>
-            <div class="segment-controls-note">
-              Results update when this value changes. Default is 10.
-            </div>
+
+            <div id="segment-elevation-excluded" class="segment-threshold-toolbar-side"></div>
           </div>
 
           <div id="segment-elevation-grid" class="records-grid"></div>
