@@ -842,10 +842,23 @@ body.dark .side-rail {
 .segment-threshold-toolbar {
   display: flex;
   justify-content: space-between;
-  align-items: end;
+  align-items: flex-start;
   gap: 14px;
   flex-wrap: wrap;
   margin-bottom: 16px;
+}
+
+.segment-threshold-toolbar-main {
+  display: flex;
+  align-items: end;
+  gap: 14px;
+  flex-wrap: wrap;
+  flex: 1 1 320px;
+}
+
+.segment-threshold-toolbar-side {
+  flex: 1 1 320px;
+  min-width: 260px;
 }
 
 .segment-threshold-field {
@@ -893,6 +906,11 @@ body.dark .side-rail {
   background: var(--surface-muted);
   border-radius: 16px;
   padding: 14px;
+}
+
+.segment-excluded-bar-compact {
+  grid-column: auto;
+  padding: 12px 14px;
 }
 
 .segment-excluded-label {
@@ -1238,13 +1256,17 @@ body.dark .side-rail {
 
 .bike-insights-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 12px;
   margin-top: 16px;
 }
 
 .bike-insight-card {
   padding: 14px;
+}
+
+.bike-insight-label {
+  white-space: nowrap;
 }
 
 .bike-insight-value {
@@ -1426,6 +1448,10 @@ body.dark .side-rail {
   .bike-history-row {
     grid-template-columns: 1fr;
   }
+
+  .bike-insight-label {
+    white-space: normal;
+  }
 }
 
 @media (max-width: 760px) {
@@ -1462,5 +1488,16 @@ body.dark .side-rail {
 
   .segment-inline-action {
     width: auto;
+  }
+
+  .segment-threshold-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .segment-threshold-toolbar-main,
+  .segment-threshold-toolbar-side {
+    width: 100%;
+    min-width: 0;
   }
 }
