@@ -617,7 +617,7 @@ function getStravaSegmentUrl(segmentId) {
 }
 
 function setAnnualBreakdownMode(mode) {
-  annualBreakdownMode = mode === "weekly" ? "weekly" : "monthly";
+  annualBreakdownMode = mode === "weekly" ? "weekly" : mode === "bike" ? "bike" : "monthly";
   localStorage.setItem(STORAGE_KEYS.annualBreakdownMode, annualBreakdownMode);
 }
 
@@ -1322,7 +1322,7 @@ function renderHighlights(rideInsights, gearDetails = {}) {
     ${bikeCard("Most recent bike", h.mostRecentBike, h.mostRecentBike ? formatDate(h.mostRecentBike.lastRide) : "-")}
     ${bikeCard("Biggest mileage week", h.biggestMileageWeekBike, h.biggestMileageWeekBike ? `${comma(miles(h.biggestMileageWeekBike.distance).toFixed(1))} mi` : "-", h.biggestMileageWeekBike ? h.biggestMileageWeekBike.label : "")}
     ${bikeCard("Biggest climbing week", h.biggestClimbingWeekBike, h.biggestClimbingWeekBike ? `${comma(feet(h.biggestClimbingWeekBike.elevation).toFixed(0))} ft` : "-", h.biggestClimbingWeekBike ? h.biggestClimbingWeekBike.label : "")}
-    ${bikeCard("Longest-used bike", h.longestUsedBike, h.longestUsedBike ? formatYearsBetween(h.longestUsedBike.firstRide, h.longestUsedBike.lastRide) : "-", h.longestUsedBike ? `${formatDate(h.longestUsedBike.firstRide)} • ${formatDate(h.longestUsedBike.lastRide)}` : "")}
+    ${bikeCard("Longest-used bike", h.longestUsedBike, h.longestUsedBike ? formatYearsBetween(h.longestUsedBike.firstRide, h.longestUsedBike.lastRide) : "-", h.longestUsedBike ? `${formatDate(h.longestUsedBike.firstRide)} ? ${formatDate(h.longestUsedBike.lastRide)}` : "")}
     ${activityCard("Longest single activity", h.longestActivity, h.longestActivity ? `${comma(miles(h.longestActivity.distance || 0).toFixed(1))} mi` : "-")}
     ${activityCard("Most elevation in a single activity", h.highestElevationActivity, h.highestElevationActivity ? `${comma(feet(h.highestElevationActivity.total_elevation_gain || 0).toFixed(0))} ft` : "-")}
     ${activityCard("Longest activity time", h.longestMovingTimeActivity, h.longestMovingTimeActivity ? formatDuration(h.longestMovingTimeActivity.moving_time || 0) : "-")}
@@ -1564,6 +1564,8 @@ function buildAnnualBreakdowns(data) {
     const weekStart = getWeekStartMonday(a.start_date);
     const weekKey = formatShortDate(weekStart);
     const dayKey = getDateKey(a.start_date);
+    const gearId = a.gear_id || "unknown";
+    const gearName = getGearName(data.gearDetails || {}, gearId);
 
     if (!annual[year]) {
       annual[year] = {
@@ -1576,7 +1578,8 @@ function buildAnnualBreakdowns(data) {
         maxRideDistance: 0,
         maxRideElevation: 0,
         months: {},
-        weeks: {}
+        weeks: {},
+        bikes: {}
       };
     }
 
@@ -1616,6 +1619,21 @@ function buildAnnualBreakdowns(data) {
     annual[year].weeks[weekKey].elevation += a.total_elevation_gain || 0;
     annual[year].weeks[weekKey].count += 1;
     annual[year].weeks[weekKey].moving_time += movingTime;
+
+    if (!annual[year].bikes[gearId]) {
+      annual[year].bikes[gearId] = {
+        gearId,
+        label: gearName,
+        distance: 0,
+        elevation: 0,
+        count: 0,
+        moving_time: 0
+      };
+    }
+    annual[year].bikes[gearId].distance += a.distance || 0;
+    annual[year].bikes[gearId].elevation += a.total_elevation_gain || 0;
+    annual[year].bikes[gearId].count += 1;
+    annual[year].bikes[gearId].moving_time += movingTime;
 
     totalDistance += a.distance || 0;
     totalElevation += a.total_elevation_gain || 0;
@@ -1705,6 +1723,7 @@ function updateAnnualStatsTable(data) {
       <div class="annual-breakdown-mode-toggle" role="tablist" aria-label="Annual breakdown mode">
         <button type="button" class="annual-breakdown-mode-btn ${annualBreakdownMode === "monthly" ? "active" : ""}" onclick="setAnnualBreakdownMode('monthly'); updateAnnualStatsTable(window.__annualStatsData)">Monthly</button>
         <button type="button" class="annual-breakdown-mode-btn ${annualBreakdownMode === "weekly" ? "active" : ""}" onclick="setAnnualBreakdownMode('weekly'); updateAnnualStatsTable(window.__annualStatsData)">Weekly</button>
+        <button type="button" class="annual-breakdown-mode-btn ${annualBreakdownMode === "bike" ? "active" : ""}" onclick="setAnnualBreakdownMode('bike'); updateAnnualStatsTable(window.__annualStatsData)">Bike</button>
       </div>
     </div>
 
@@ -1739,13 +1758,29 @@ function updateAnnualStatsTable(data) {
   years.forEach(year => {
     const y = annual[year];
     const isExpanded = annualExpandedYears.has(String(year));
-    const breakdownSource = annualBreakdownMode === "monthly" ? y.months : y.weeks;
-    const breakdownItems = Object.entries(breakdownSource).map(([key, value]) => ({
-      ...value,
-      sortDate: annualBreakdownMode === "monthly"
-        ? new Date(Number(year), Number(key), 1).getTime()
-        : new Date(key).getTime()
-    }));
+
+    let breakdownItems = [];
+    if (annualBreakdownMode === "monthly") {
+      breakdownItems = Object.entries(y.months).map(([key, value]) => ({
+        ...value,
+        sortDate: new Date(Number(year), Number(key), 1).getTime()
+      }));
+    } else if (annualBreakdownMode === "weekly") {
+      breakdownItems = Object.entries(y.weeks).map(([key, value]) => ({
+        ...value,
+        sortDate: new Date(key).getTime()
+      }));
+    } else {
+      breakdownItems = Object.values(y.bikes)
+        .map(value => ({
+          ...value,
+          sortDate: 0
+        }))
+        .sort((a, b) => {
+          if (b.distance !== a.distance) return b.distance - a.distance;
+          return a.label.localeCompare(b.label);
+        });
+    }
 
     html += `
       <div class="annual-year-block">
@@ -2288,7 +2323,7 @@ async function refreshData() {
   statusDiv.innerHTML = "Refreshing (only new activities + PR data)…";
   showSpinner();
 
-  const res = await fetch("http://192.168.0.115:5000/api/analytics?refresh=1&segments=1");
+  const res = await fetch("http://192.168.0.115:5000/api/analytics?refresh=1&segments=1&updated=1");
   const data = await res.json();
 
   hideSpinner();
