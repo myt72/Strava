@@ -45,6 +45,21 @@ function getGearName(gearDetails, gearId) {
   return gearDetails?.[gearId]?.name || gearId;
 }
 
+function getAnnualBreakdownBikeLabel(activity, gearDetails) {
+  if (activity?.gear_id) return getGearName(gearDetails, activity.gear_id);
+  return activity?.sport_type || "Unknown";
+}
+
+function getAnnualBreakdownBikeKey(activity) {
+  if (activity?.gear_id) return `gear:${activity.gear_id}`;
+  return `type:${String(activity?.sport_type || "Unknown").toLowerCase()}`;
+}
+
+
+
+
+
+
 function formatActivityTitle(activity) {
   if (!activity) return "-";
   return activity.name || activity.sport_type || "Activity";
@@ -1564,8 +1579,8 @@ function buildAnnualBreakdowns(data) {
     const weekStart = getWeekStartMonday(a.start_date);
     const weekKey = formatShortDate(weekStart);
     const dayKey = getDateKey(a.start_date);
-    const gearId = a.gear_id || "unknown";
-    const gearName = getGearName(data.gearDetails || {}, gearId);
+    const bikeKey = getAnnualBreakdownBikeKey(a);
+    const bikeLabel = getAnnualBreakdownBikeLabel(a, data.gearDetails || {});
 
     if (!annual[year]) {
       annual[year] = {
@@ -1620,20 +1635,19 @@ function buildAnnualBreakdowns(data) {
     annual[year].weeks[weekKey].count += 1;
     annual[year].weeks[weekKey].moving_time += movingTime;
 
-    if (!annual[year].bikes[gearId]) {
-      annual[year].bikes[gearId] = {
-        gearId,
-        label: gearName,
-        distance: 0,
-        elevation: 0,
-        count: 0,
-        moving_time: 0
-      };
-    }
-    annual[year].bikes[gearId].distance += a.distance || 0;
-    annual[year].bikes[gearId].elevation += a.total_elevation_gain || 0;
-    annual[year].bikes[gearId].count += 1;
-    annual[year].bikes[gearId].moving_time += movingTime;
+    if (!annual[year].bikes[bikeKey]) {
+      annual[year].bikes[bikeKey] = {
+        label: bikeLabel,
+         distance: 0,
+         elevation: 0,
+         count: 0,
+         moving_time: 0
+       };
+     }
+    annual[year].bikes[bikeKey].distance += a.distance || 0;
+    annual[year].bikes[bikeKey].elevation += a.total_elevation_gain || 0;
+    annual[year].bikes[bikeKey].count += 1;
+    annual[year].bikes[bikeKey].moving_time += movingTime;
 
     totalDistance += a.distance || 0;
     totalElevation += a.total_elevation_gain || 0;
