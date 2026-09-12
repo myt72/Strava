@@ -266,6 +266,20 @@ function mapActivity(a) {
   };
 }
 
+function activitySignature(activity) {
+  if (!activity) return "";
+  return JSON.stringify({
+    id: activity.id,
+    name: activity.name,
+    sport_type: activity.sport_type,
+    distance: activity.distance,
+    moving_time: activity.moving_time,
+    total_elevation_gain: activity.total_elevation_gain,
+    start_date: activity.start_date,
+    gear_id: activity.gear_id
+  });
+}
+
 async function fetchAllActivitiesOnce() {
   let page = 1;
   let all = [];
@@ -304,6 +318,55 @@ async function fetchNewActivitiesSince(lastDate) {
   }
 
   return newActs;
+}
+
+async function fetchRecentActivitiesPage() {
+  const res = await stravaFetch(
+    `https://www.strava.com/api/v3/athlete/activities?per_page=200&page=1`
+  );
+  const data = await res.json();
+  if (!Array.isArray(data) || data.length === 0) return [];
+  return data.map(mapActivity);
+}
+
+function mergeActivitiesById(preferredActivities, existingActivities) {
+  const merged = new Map();
+
+  for (const activity of preferredActivities || []) {
+    merged.set(String(activity.id), activity);
+  }
+
+  for (const activity of existingActivities || []) {
+    const key = String(activity.id);
+    if (!merged.has(key)) {
+      merged.set(key, activity);
+    }
+  }
+
+  return Array.from(merged.values()).sort(
+    (a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
+  );
+}
+
+function findChangedActivities(incomingActivities, existingActivities) {
+  const existingById = new Map((existingActivities || []).map(a => [String(a.id), a]));
+  const changed = [];
+  const added = [];
+
+  for (const activity of incomingActivities || []) {
+    const existing = existingById.get(String(activity.id));
+    if (!existing) {
+      added.push(activity);
+      changed.push(activity);
+      continue;
+    }
+
+    if (activitySignature(activity) !== activitySignature(existing)) {
+      changed.push(activity);
+    }
+  }
+
+  return { changed, added };
 }
 
 async function fetchActivitiesBefore(beforeDate) {
@@ -404,14 +467,20 @@ function normalizeSegmentEffort(e) {
   };
 }
 
-async function fetchSegmentEffortsForActivities(activities, existingSegmentData, fetchSegments = false) {
+async function fetchSegmentEffortsForActivities(activities, existingSegmentData, fetchSegments = false, options = {}) {
   if (!fetchSegments) {
     console.log("[Segment Fetch] Skipped (disabled to save rate limit)");
     return existingSegmentData || {};
   }
 
   const existing = existingSegmentData || {};
-  const toFetch = activities.filter(a => a.sport_type === "Ride" && !(a.id in existing));
+  const forceActivityIds = new Set((options.forceActivityIds || []).map(id => String(id)));
+
+  const toFetch = activities.filter(a => {
+    if (!a || a.sport_type !== "Ride") return false;
+    if (forceActivityIds.has(String(a.id))) return true;
+    return !(a.id in existing);
+  });
 
   if (toFetch.length === 0) {
     console.log("[Segment Fetch] No new ride segments to fetch");
@@ -895,11 +964,19 @@ app.get("/api/analytics", async (req, res) => {
   const full = req.query.full === "1";
   const refresh = req.query.refresh === "1";
   const resume = req.query.resume === "1";
+  const updated = req.query.updated === "1";
   const cache = ensureCacheShape(loadCache());
   const fetchSegments = req.query.segments === "1";
 
   requestCount = 0;
-  const mode = full ? "FULL" : refresh ? "REFRESH" : resume ? "RESUME" : "AUTO";
+  const mode = full
+    ? "FULL"
+    : refresh
+      ? (updated ? "REFRESH_UPDATED" : "REFRESH")
+      : resume
+        ? "RESUME"
+        : "AUTO";
+
   console.log(`\n[API Call] Starting ${mode} pull. fetchSegments=${fetchSegments}`);
 
   if (full) {
@@ -1046,6 +1123,80 @@ app.get("/api/analytics", async (req, res) => {
       ...newCache,
       prBackfill: getPrBackfillStatus(),
       message: `Initial full fetch complete. (${requestCount} API calls, ${allActivities.length} activities)`
+    });
+  }
+
+  if (updated) {
+    const recentActivities = await fetchRecentActivitiesPage();
+    const { changed, added } = findChangedActivities(recentActivities, cache.activities);
+
+    if ((!recentActivities || recentActivities.length === 0) && (!added.length && !changed.length)) {
+      return res.json({
+        cached: true,
+        ...cache,
+        prBackfill: getPrBackfillStatus(),
+        message: `No updated activities found. (${cache.activities.length} activities in cache)`
+      });
+    }
+
+    const changedRideIds = changed
+      .filter(activity => activity.sport_type === "Ride")
+      .map(activity => activity.id);
+
+    const previousRideIdsThatChanged = changed
+      .map(activity => {
+        const existing = (cache.activities || []).find(cached => String(cached.id) === String(activity.id));
+        return existing?.sport_type === "Ride" ? existing.id : null;
+      })
+      .filter(Boolean);
+
+    const segmentData = { ...(cache.segmentData || {}) };
+
+    for (const id of previousRideIdsThatChanged) {
+      delete segmentData[id];
+    }
+
+    const mergedActivities = mergeActivitiesById(recentActivities, cache.activities);
+
+    const refreshedSegmentData = await fetchSegmentEffortsForActivities(
+      changed,
+      segmentData,
+      fetchSegments,
+      { forceActivityIds: changedRideIds }
+    );
+
+    const { activityCounts, gearTotals, annualStats, bikeYearStats } = computeAnalytics(mergedActivities, refreshedSegmentData);
+    const gearDetails = await fetchMissingGearDetails(cache.gearDetails, gearTotals);
+
+    const rideCount = mergedActivities.filter(a => a.sport_type === "Ride").length;
+    const remaining = mergedActivities.filter(a => a.sport_type === "Ride" && !(a.id in refreshedSegmentData)).length;
+
+    const newCache = setSegmentBackfillMeta({
+      ...cache,
+      activities: mergedActivities,
+      segmentData: refreshedSegmentData,
+      activityCounts,
+      gearTotals,
+      gearDetails,
+      annualStats,
+      bikeYearStats
+    }, {
+      enabled: true,
+      nextIndex: cache.segmentBackfill?.nextIndex || 0,
+      completed: remaining === 0,
+      lastRunAt: cache.segmentBackfill?.lastRunAt || null,
+      totalEligible: rideCount,
+      fetchedThisRun: 0,
+      remaining
+    });
+
+    saveCache(newCache);
+
+    return res.json({
+      cached: false,
+      ...newCache,
+      prBackfill: getPrBackfillStatus(),
+      message: `Refresh complete. Added ${added.length} new and re-synced ${changed.length - added.length} updated activities. (${requestCount} API calls, ${mergedActivities.length} total)`
     });
   }
 
