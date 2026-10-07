@@ -191,6 +191,57 @@ function computeLongestGap(dateKeys) {
   return maxGap;
 }
 
+function computeLongestStreakDetails(dateKeys) {
+  const sorted = [...new Set(dateKeys)].sort();
+  if (!sorted.length) return { length: 0, start: null, end: null };
+
+  let best = { length: 1, start: sorted[0], end: sorted[0] };
+  let current = { ...best };
+
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = new Date(`${sorted[i - 1]}T00:00:00`);
+    const curr = new Date(`${sorted[i]}T00:00:00`);
+    const diffDays = Math.round((curr - prev) / 86400000);
+
+    if (diffDays === 1) {
+      current.length += 1;
+      current.end = sorted[i];
+    } else {
+      current = { length: 1, start: sorted[i], end: sorted[i] };
+    }
+
+    if (current.length > best.length) best = { ...current };
+  }
+
+  return best;
+}
+
+function computeLongestGapDetails(dateKeys) {
+  const sorted = [...new Set(dateKeys)].sort();
+  let best = { length: 0, start: null, end: null };
+
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = new Date(`${sorted[i - 1]}T00:00:00`);
+    const curr = new Date(`${sorted[i]}T00:00:00`);
+    const gapDays = Math.round((curr - prev) / 86400000) - 1;
+
+    if (gapDays > best.length) {
+      const gapStart = new Date(prev);
+      gapStart.setDate(gapStart.getDate() + 1);
+      const gapEnd = new Date(curr);
+      gapEnd.setDate(gapEnd.getDate() - 1);
+      best = { length: gapDays, start: getDateKey(gapStart), end: getDateKey(gapEnd) };
+    }
+  }
+
+  return best;
+}
+
+function formatDateRange(start, end) {
+  if (!start || !end) return "—";
+  return `${formatDate(`${start}T00:00:00`)} – ${formatDate(`${end}T00:00:00`)}`;
+}
+
 function getMondayForIsoWeek(year, isoWeek) {
   const simple = new Date(year, 0, 1 + (isoWeek - 1) * 7);
   const day = simple.getDay();
@@ -1296,12 +1347,14 @@ function renderKpiSummary(data) {
   const rideDayKeys = data.activities
     .filter(a => a.sport_type === "Ride")
     .map(a => getDateKey(a.start_date));
-  const longestRideStreak = computeMaxStreak(rideDayKeys);
-  const longestActivityStreak = computeMaxStreak(allDayKeys);
-  const longestOffBikeStreak = computeLongestGap(rideDayKeys);
-  const longestActivityStreakWeeks = (longestActivityStreak / 7).toFixed(1);
+  const longestRideStreak = computeLongestStreakDetails(rideDayKeys);
+  const longestActivityStreak = computeLongestStreakDetails(allDayKeys);
+  const longestOffBikeStreak = computeLongestGapDetails(rideDayKeys);
+  const longestActivityStreakWeeks = (longestActivityStreak.length / 7).toFixed(1);
 
   kpi.innerHTML = `
+    <div class="kpi-group-label">Totals</div>
+    <div class="kpi-grid kpi-grid-totals">
     <div class="kpi-card neon-distance">
       <div class="kpi-label">Filtered Activities</div>
       <div class="kpi-value">${comma(totalActivities)}</div>
@@ -1318,22 +1371,29 @@ function renderKpiSummary(data) {
       <div class="kpi-label">Elevation</div>
       <div class="kpi-value">${comma(feet(totalElevationMeters).toFixed(0))} ft</div>
     </div>
+    </div>
+    <div class="kpi-group-label">Streaks &amp; Context</div>
+    <div class="kpi-grid kpi-grid-streaks">
     <div class="kpi-card neon-accent">
       <div class="kpi-label">Bikes in View</div>
       <div class="kpi-value">${comma(activeBikes)}</div>
     </div>
     <div class="kpi-card neon-accent">
       <div class="kpi-label">Longest Ride Streak</div>
-      <div class="kpi-value">${comma(longestRideStreak)} days</div>
+      <div class="kpi-value">${comma(longestRideStreak.length)} days</div>
+      <div class="kpi-subtext">${formatDateRange(longestRideStreak.start, longestRideStreak.end)}</div>
     </div>
     <div class="kpi-card neon-time">
       <div class="kpi-label">Longest Activity Streak</div>
-      <div class="kpi-value">${comma(longestActivityStreak)} days</div>
+      <div class="kpi-value">${comma(longestActivityStreak.length)} days</div>
       <div class="kpi-subtext">${longestActivityStreakWeeks} weeks</div>
+      <div class="kpi-subtext">${formatDateRange(longestActivityStreak.start, longestActivityStreak.end)}</div>
     </div>
     <div class="kpi-card neon-elevation">
       <div class="kpi-label">Longest Off-Bike Streak</div>
-      <div class="kpi-value">${comma(longestOffBikeStreak)} days</div>
+      <div class="kpi-value">${comma(longestOffBikeStreak.length)} days</div>
+      <div class="kpi-subtext">${formatDateRange(longestOffBikeStreak.start, longestOffBikeStreak.end)}</div>
+    </div>
     </div>
   `;
 }

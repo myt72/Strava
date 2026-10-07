@@ -412,7 +412,10 @@ body.dark .side-rail {
 
 .hero-main {
   border-radius: 24px;
-  padding: 24px;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   position: relative;
   overflow: hidden;
 }
@@ -449,8 +452,8 @@ body.dark .side-rail {
 .hero-period-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  margin-top: 22px;
+  gap: 12px;
+  margin-top: 16px;
 }
 
 .hero-stat {
@@ -483,10 +486,47 @@ body.dark .side-rail {
 .hero-stat-delta.positive { color: var(--success); }
 .hero-stat-delta.negative { color: var(--danger); }
 
+.kpi-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kpi-group-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin: 0 4px;
+}
+
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 12px;
+}
+
+.kpi-grid-totals .kpi-card {
+  padding: 14px 16px;
+}
+
+.kpi-grid-totals .kpi-value {
+  font-size: 24px;
+}
+
+.kpi-grid-streaks .kpi-card {
+  padding: 14px 16px;
+  border-left: 3px solid currentColor;
+}
+
+.kpi-grid-streaks .kpi-value {
+  font-size: 24px;
+}
+
+.kpi-grid-streaks .kpi-subtext {
+  margin-top: 4px;
+  font-size: 12px;
 }
 
 .kpi-card {
