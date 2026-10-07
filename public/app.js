@@ -177,6 +177,20 @@ function computeMaxStreak(dateKeys) {
   return maxStreak;
 }
 
+function computeLongestGap(dateKeys) {
+  const sorted = [...new Set(dateKeys)].sort();
+  let maxGap = 0;
+
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = new Date(`${sorted[i - 1]}T00:00:00`);
+    const curr = new Date(`${sorted[i]}T00:00:00`);
+    const diffDays = Math.round((curr - prev) / 86400000);
+    maxGap = Math.max(maxGap, diffDays - 1);
+  }
+
+  return maxGap;
+}
+
 function getMondayForIsoWeek(year, isoWeek) {
   const simple = new Date(year, 0, 1 + (isoWeek - 1) * 7);
   const day = simple.getDay();
@@ -1278,6 +1292,14 @@ function renderKpiSummary(data) {
   const totalElevationMeters = data.activities.reduce((sum, a) => sum + (a.total_elevation_gain || 0), 0);
   const totalMovingTime = data.activities.reduce((sum, a) => sum + (a.moving_time || 0), 0);
   const activeBikes = Object.keys(data.gearTotals || {}).length;
+  const allDayKeys = data.activities.map(a => getDateKey(a.start_date));
+  const rideDayKeys = data.activities
+    .filter(a => a.sport_type === "Ride")
+    .map(a => getDateKey(a.start_date));
+  const longestRideStreak = computeMaxStreak(rideDayKeys);
+  const longestActivityStreak = computeMaxStreak(allDayKeys);
+  const longestOffBikeStreak = computeLongestGap(rideDayKeys);
+  const longestActivityStreakWeeks = (longestActivityStreak / 7).toFixed(1);
 
   kpi.innerHTML = `
     <div class="kpi-card neon-distance">
@@ -1299,6 +1321,19 @@ function renderKpiSummary(data) {
     <div class="kpi-card neon-accent">
       <div class="kpi-label">Bikes in View</div>
       <div class="kpi-value">${comma(activeBikes)}</div>
+    </div>
+    <div class="kpi-card neon-accent">
+      <div class="kpi-label">Longest Ride Streak</div>
+      <div class="kpi-value">${comma(longestRideStreak)} days</div>
+    </div>
+    <div class="kpi-card neon-time">
+      <div class="kpi-label">Longest Activity Streak</div>
+      <div class="kpi-value">${comma(longestActivityStreak)} days</div>
+      <div class="kpi-subtext">${longestActivityStreakWeeks} weeks</div>
+    </div>
+    <div class="kpi-card neon-elevation">
+      <div class="kpi-label">Longest Off-Bike Streak</div>
+      <div class="kpi-value">${comma(longestOffBikeStreak)} days</div>
     </div>
   `;
 }
