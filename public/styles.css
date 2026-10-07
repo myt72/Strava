@@ -532,6 +532,12 @@ body.dark .side-rail {
   color: var(--text);
 }
 
+.kpi-subtext {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
 .global-filters,
 .bike-controls,
 .annual-controls {
