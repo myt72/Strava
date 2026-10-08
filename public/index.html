@@ -90,6 +90,12 @@
             </button>
 
             <div id="advanced-menu" class="dropdown-menu">
+              <button class="dropdown-item" type="button" onclick="openThemeManager(); toggleAdvancedMenu()">
+                <span aria-hidden="true">⚙</span>
+                Manage themes…
+              </button>
+              <div class="dropdown-divider"></div>
+
               <button class="dropdown-item" onclick="refreshData(); toggleAdvancedMenu()">
                 <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M20 12a8 8 0 1 1-2.34-5.66" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
@@ -399,6 +405,24 @@
       <div id="bike-grid" class="card-grid"></div>
     </main>
   </div>
+
+  <dialog id="theme-manager" aria-labelledby="theme-manager-title" aria-describedby="theme-manager-description">
+    <div class="theme-manager-header">
+      <div>
+        <h2 id="theme-manager-title">Manage themes</h2>
+        <p id="theme-manager-description">Choose which themes appear in the theme picker.</p>
+      </div>
+      <button id="theme-manager-close" class="theme-manager-close" type="button" aria-label="Close theme manager">×</button>
+    </div>
+    <div class="theme-manager-controls">
+      <button id="theme-manager-show-all" type="button">Show all</button>
+      <button id="theme-manager-hide-all" type="button">Hide all except Default and current</button>
+    </div>
+    <div id="theme-manager-groups" class="theme-manager-body"></div>
+    <div class="theme-manager-footer">
+      <button id="theme-manager-done" type="button">Done</button>
+    </div>
+  </dialog>
 
   <script>
     function toggleAdvancedMenu() {
