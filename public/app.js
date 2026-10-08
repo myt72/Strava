@@ -2165,7 +2165,7 @@ function renderBikeRows(rows, rideInsights) {
               <circle cx="19" cy="17" r="3" stroke="currentColor" stroke-width="2" fill="none"></circle>
               <path d="M5 17l6-10 4 6h4" stroke="currentColor" stroke-width="2" fill="none"></path>
             </svg>
-            <span>${escapeHtml(row.name)}</span>
+            <button type="button" class="bike-name-btn" data-gid="${escapeHtml(row.gid)}" data-name="${escapeHtml(row.name)}" aria-haspopup="dialog" title="View bike photos">${escapeHtml(row.name)}</button>
           </div>
           <div class="bike-card-actions">
             <button class="pin-button ${row.isPinned ? "pinned" : ""}" onclick="pinBike('${row.gid}')">${row.isPinned ? "Pinned" : "Pin"}</button>
@@ -2308,6 +2308,13 @@ function renderBikeRows(rows, rideInsights) {
   });
 
   document.getElementById("bike-grid").innerHTML = html;
+
+  document.querySelectorAll(".bike-name-btn").forEach(btn => {
+    btn.addEventListener("click", event => {
+      event.stopPropagation();
+      openBikeGallery(btn.dataset.gid, btn.dataset.name);
+    });
+  });
 
   document.querySelectorAll(".bike-checkbox").forEach(cb => {
     cb.addEventListener("change", event => {
@@ -2727,3 +2734,229 @@ function renderSegmentDistanceHighlights(items, gearDetails = {}) {
     }).join("")}
   `;
 }
+
+
+/* ----------------- BIKE PHOTO GALLERY ----------------- */
+
+const BIKE_IMAGES_API = "http://192.168.0.115:5000/api/bike-images";
+const BIKE_SLIDESHOW_MS = 4000;
+let bikeImageManifest = {};
+const bikeGallery = { gid: null, name: "", index: 0, timer: null, version: {} };
+
+function bikeGalleryEls() {
+  return {
+    dialog: document.getElementById("bike-gallery"),
+    title: document.getElementById("bike-gallery-title"),
+    stage: document.getElementById("bike-gallery-stage"),
+    img: document.getElementById("bike-gallery-img"),
+    empty: document.getElementById("bike-gallery-empty"),
+    counter: document.getElementById("bike-gallery-counter"),
+    prev: document.getElementById("bike-gallery-prev"),
+    next: document.getElementById("bike-gallery-next"),
+    slideshow: document.getElementById("bike-gallery-slideshow"),
+    replace: document.getElementById("bike-gallery-replace"),
+    remove: document.getElementById("bike-gallery-remove"),
+    status: document.getElementById("bike-gallery-status"),
+    fileAdd: document.getElementById("bike-gallery-file-add"),
+    fileReplace: document.getElementById("bike-gallery-file-replace")
+  };
+}
+
+function bikeGalleryUrls() {
+  return bikeImageManifest[bikeGallery.gid] || [];
+}
+
+function bikeGalleryFilename(url) {
+  return String(url).split("?")[0].split("/").pop();
+}
+
+async function loadBikeImages() {
+  try {
+    const res = await fetch(BIKE_IMAGES_API);
+    if (res.ok) bikeImageManifest = await res.json();
+  } catch (err) {
+    console.warn("Could not load bike images", err);
+  }
+}
+
+function setBikeGalleryStatus(message) {
+  bikeGalleryEls().status.textContent = message || "";
+}
+
+function renderBikeGallery() {
+  const els = bikeGalleryEls();
+  const urls = bikeGalleryUrls();
+  const count = urls.length;
+  if (bikeGallery.index >= count) bikeGallery.index = Math.max(0, count - 1);
+  els.title.textContent = bikeGallery.name;
+  els.empty.hidden = count > 0;
+  els.img.hidden = count === 0;
+  els.stage.classList.toggle("has-multiple", count > 1);
+  if (count) {
+    const url = urls[bikeGallery.index];
+    const v = bikeGallery.version[bikeGalleryFilename(url)];
+    els.img.src = `http://192.168.0.115:5000${url}${v ? `?v=${v}` : ""}`;
+    els.img.alt = `${bikeGallery.name} photo ${bikeGallery.index + 1} of ${count}`;
+  } else {
+    els.img.removeAttribute("src");
+  }
+  els.counter.hidden = count < 2;
+  els.counter.textContent = `${bikeGallery.index + 1} / ${count}`;
+  els.prev.hidden = count < 2;
+  els.next.hidden = count < 2;
+  els.slideshow.hidden = count < 2;
+  els.replace.hidden = count === 0;
+  els.remove.hidden = count === 0;
+  if (count < 2) stopBikeSlideshow();
+}
+
+function stopBikeSlideshow() {
+  if (bikeGallery.timer) clearInterval(bikeGallery.timer);
+  bikeGallery.timer = null;
+  const btn = document.getElementById("bike-gallery-slideshow");
+  if (btn) {
+    btn.textContent = "Slideshow";
+    btn.setAttribute("aria-pressed", "false");
+  }
+}
+
+function startBikeSlideshow() {
+  if (bikeGalleryUrls().length < 2) return;
+  stopBikeSlideshow();
+  bikeGallery.timer = setInterval(() => stepBikeGallery(1, true), BIKE_SLIDESHOW_MS);
+  const btn = document.getElementById("bike-gallery-slideshow");
+  btn.textContent = "Pause";
+  btn.setAttribute("aria-pressed", "true");
+}
+
+function stepBikeGallery(delta, fromTimer) {
+  const count = bikeGalleryUrls().length;
+  if (count < 2) return;
+  if (!fromTimer) stopBikeSlideshow();
+  bikeGallery.index = (bikeGallery.index + delta + count) % count;
+  renderBikeGallery();
+}
+
+function openBikeGallery(gid, name) {
+  const els = bikeGalleryEls();
+  if (!els.dialog || !gid) return;
+  bikeGallery.gid = gid;
+  bikeGallery.name = name || gid;
+  bikeGallery.index = 0;
+  setBikeGalleryStatus("");
+  renderBikeGallery();
+  if (!els.dialog.open) els.dialog.showModal();
+}
+
+async function bikeImageRequest(method, filename, file) {
+  const url = `${BIKE_IMAGES_API}/${encodeURIComponent(bikeGallery.gid)}${filename ? `/${encodeURIComponent(filename)}` : ""}`;
+  const res = await fetch(url, {
+    method,
+    headers: file ? { "Content-Type": file.type, "X-Filename": encodeURIComponent(file.name) } : {},
+    body: file || undefined
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  bikeImageManifest[bikeGallery.gid] = data.images;
+  if (!data.images.length) delete bikeImageManifest[bikeGallery.gid];
+  return data;
+}
+
+async function addBikeImages(files) {
+  const images = Array.from(files || []).filter(f => f.type.startsWith("image/"));
+  if (!images.length) return setBikeGalleryStatus("Please choose image files.");
+  stopBikeSlideshow();
+  let failed = 0;
+  let lastError = "";
+  for (let i = 0; i < images.length; i++) {
+    setBikeGalleryStatus(`Uploading ${i + 1} of ${images.length}...`);
+    try {
+      await bikeImageRequest("POST", null, images[i]);
+      bikeGallery.index = bikeGalleryUrls().length - 1;
+    } catch (err) {
+      failed++;
+      lastError = err.message;
+    }
+  }
+  renderBikeGallery();
+  setBikeGalleryStatus(failed ? `${failed} upload(s) failed: ${lastError}` : "");
+}
+
+async function replaceBikeImage(file) {
+  const url = bikeGalleryUrls()[bikeGallery.index];
+  if (!file || !url) return;
+  stopBikeSlideshow();
+  setBikeGalleryStatus("Replacing...");
+  try {
+    await bikeImageRequest("PUT", bikeGalleryFilename(url), file);
+    setBikeGalleryStatus("");
+  } catch (err) {
+    setBikeGalleryStatus(err.message);
+  }
+  renderBikeGallery();
+}
+
+async function removeBikeImage() {
+  const url = bikeGalleryUrls()[bikeGallery.index];
+  if (!url || !confirm("Remove this photo?")) return;
+  stopBikeSlideshow();
+  try {
+    await bikeImageRequest("DELETE", bikeGalleryFilename(url));
+    setBikeGalleryStatus("");
+  } catch (err) {
+    setBikeGalleryStatus(err.message);
+  }
+  renderBikeGallery();
+}
+
+function initBikeGallery() {
+  const els = bikeGalleryEls();
+  if (!els.dialog) return;
+  els.dialog.addEventListener("close", () => {
+    stopBikeSlideshow();
+    bikeGallery.gid = null;
+  });
+  els.dialog.addEventListener("click", event => {
+    if (event.target === els.dialog) els.dialog.close();
+  });
+  document.getElementById("bike-gallery-close").addEventListener("click", () => els.dialog.close());
+  els.img.addEventListener("click", () => stepBikeGallery(1));
+  els.prev.addEventListener("click", () => stepBikeGallery(-1));
+  els.next.addEventListener("click", () => stepBikeGallery(1));
+  els.slideshow.addEventListener("click", () => {
+    if (bikeGallery.timer) stopBikeSlideshow();
+    else startBikeSlideshow();
+  });
+  document.querySelectorAll(".bike-gallery-add-btn").forEach(btn => {
+    btn.addEventListener("click", () => els.fileAdd.click());
+  });
+  els.replace.addEventListener("click", () => els.fileReplace.click());
+  els.remove.addEventListener("click", removeBikeImage);
+  els.fileAdd.addEventListener("change", () => {
+    addBikeImages(els.fileAdd.files);
+    els.fileAdd.value = "";
+  });
+  els.fileReplace.addEventListener("change", () => {
+    replaceBikeImage(els.fileReplace.files[0]);
+    els.fileReplace.value = "";
+  });
+  els.dialog.addEventListener("keydown", event => {
+    if (event.key === "ArrowLeft") stepBikeGallery(-1);
+    else if (event.key === "ArrowRight") stepBikeGallery(1);
+  });
+  els.dialog.addEventListener("dragover", event => {
+    event.preventDefault();
+    els.dialog.classList.add("dragging");
+  });
+  els.dialog.addEventListener("dragleave", event => {
+    if (event.target === els.dialog) els.dialog.classList.remove("dragging");
+  });
+  els.dialog.addEventListener("drop", event => {
+    event.preventDefault();
+    els.dialog.classList.remove("dragging");
+    addBikeImages(event.dataTransfer.files);
+  });
+  loadBikeImages();
+}
+
+initBikeGallery();

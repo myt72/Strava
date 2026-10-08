@@ -424,6 +424,35 @@
     </div>
   </dialog>
 
+  <dialog id="bike-gallery" aria-labelledby="bike-gallery-title">
+    <div class="bike-gallery-header">
+      <h2 id="bike-gallery-title"></h2>
+      <button id="bike-gallery-close" class="bike-gallery-close" type="button">Close</button>
+    </div>
+    <div id="bike-gallery-stage" class="bike-gallery-stage">
+      <button id="bike-gallery-prev" class="bike-gallery-nav prev" type="button" aria-label="Previous photo" hidden>&#8249;</button>
+      <img id="bike-gallery-img" class="bike-gallery-img" alt="" hidden>
+      <div id="bike-gallery-empty" class="bike-gallery-empty" hidden>
+        <p>No photos yet for this bike.</p>
+        <button type="button" class="bike-gallery-add-btn">Add photo</button>
+        <p class="bike-gallery-hint">You can also drag and drop images here.</p>
+      </div>
+      <button id="bike-gallery-next" class="bike-gallery-nav next" type="button" aria-label="Next photo" hidden>&#8250;</button>
+    </div>
+    <div class="bike-gallery-footer">
+      <span id="bike-gallery-counter" class="bike-gallery-counter" aria-live="polite" hidden></span>
+      <span id="bike-gallery-status" class="bike-gallery-status" role="status"></span>
+      <div class="bike-gallery-tools">
+        <button id="bike-gallery-slideshow" class="bike-gallery-link" type="button" aria-pressed="false" hidden>Slideshow</button>
+        <button type="button" class="bike-gallery-link bike-gallery-add-btn">Add photo(s)</button>
+        <button id="bike-gallery-replace" class="bike-gallery-link" type="button" hidden>Replace this photo</button>
+        <button id="bike-gallery-remove" class="bike-gallery-link" type="button" hidden>Remove this photo</button>
+      </div>
+    </div>
+    <input id="bike-gallery-file-add" type="file" accept="image/*" multiple hidden>
+    <input id="bike-gallery-file-replace" type="file" accept="image/*" hidden>
+  </dialog>
+
   <script>
     function toggleAdvancedMenu() {
       const menu = document.getElementById("advanced-menu");

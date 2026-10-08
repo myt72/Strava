@@ -1251,4 +1251,140 @@ app.get("/api/analytics", async (req, res) => {
 
 /* START */
 
+/* BIKE IMAGES */
+
+const path = require("path");
+const BIKE_IMAGES_DIR = path.join(__dirname, "public", "images", "bikes");
+const BIKE_MANIFEST_PATH = path.join(BIKE_IMAGES_DIR, "manifest.json");
+const GEAR_ID_RE = /^[A-Za-z0-9_-]+$/;
+const FILENAME_RE = /^[A-Za-z0-9_-]+\.(jpg|png|webp|gif)$/;
+const IMAGE_EXT = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif" };
+const bikeImageUpload = express.raw({ type: "image/*", limit: "15mb" });
+
+function detectImageType(buf) {
+  if (!Buffer.isBuffer(buf) || buf.length < 12) return null;
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return "image/jpeg";
+  if (buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return "image/png";
+  if (buf.toString("ascii", 0, 4) === "RIFF" && buf.toString("ascii", 8, 12) === "WEBP") return "image/webp";
+  if (buf.toString("ascii", 0, 3) === "GIF") return "image/gif";
+  return null;
+}
+
+function readBikeManifest() {
+  try {
+    const data = JSON.parse(fs.readFileSync(BIKE_MANIFEST_PATH, "utf8"));
+    return data && typeof data === "object" && !Array.isArray(data) ? data : {};
+  } catch (err) {
+    return {};
+  }
+}
+
+function writeBikeManifest(manifest) {
+  fs.mkdirSync(BIKE_IMAGES_DIR, { recursive: true });
+  const tmp = `${BIKE_MANIFEST_PATH}.${process.pid}.${Date.now()}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(manifest, null, 2));
+  fs.renameSync(tmp, BIKE_MANIFEST_PATH);
+}
+
+function bikeImageUrls(manifest, gearId) {
+  return (manifest[gearId] || []).map(f => `/dashboard/images/bikes/${gearId}/${f}`);
+}
+
+function validateBikeImageRequest(req, res) {
+  const { gearId } = req.params;
+  if (!GEAR_ID_RE.test(gearId)) {
+    res.status(400).json({ error: "Invalid gear id" });
+    return null;
+  }
+  if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+    res.status(415).json({ error: "Body must be a jpeg, png, webp or gif image" });
+    return null;
+  }
+  const mime = detectImageType(req.body);
+  const declared = String(req.headers["content-type"] || "").split(";")[0].trim().toLowerCase();
+  if (!mime || !IMAGE_EXT[declared] || mime !== declared) {
+    res.status(415).json({ error: "Unsupported or mismatched image type" });
+    return null;
+  }
+  return { gearId, ext: IMAGE_EXT[mime] };
+}
+
+function resolveBikeImage(manifest, gearId, filename) {
+  const name = path.basename(String(filename));
+  if (!GEAR_ID_RE.test(gearId) || name !== filename || !FILENAME_RE.test(name)) return null;
+  const list = manifest[gearId] || [];
+  const index = list.indexOf(name);
+  if (index === -1) return null;
+  return { name, index, file: path.join(BIKE_IMAGES_DIR, gearId, name) };
+}
+
+app.get("/api/bike-images", (req, res) => {
+  const manifest = readBikeManifest();
+  const out = {};
+  Object.keys(manifest).forEach(gid => {
+    if (GEAR_ID_RE.test(gid)) out[gid] = bikeImageUrls(manifest, gid);
+  });
+  res.json(out);
+});
+
+app.post("/api/bike-images/:gearId", bikeImageUpload, (req, res) => {
+  const v = validateBikeImageRequest(req, res);
+  if (!v) return;
+  try {
+    const dir = path.join(BIKE_IMAGES_DIR, v.gearId);
+    fs.mkdirSync(dir, { recursive: true });
+    const name = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${v.ext}`;
+    fs.writeFileSync(path.join(dir, name), req.body);
+    const manifest = readBikeManifest();
+    manifest[v.gearId] = [...(manifest[v.gearId] || []), name];
+    writeBikeManifest(manifest);
+    res.status(201).json({ gearId: v.gearId, images: bikeImageUrls(manifest, v.gearId) });
+  } catch (err) {
+    console.error("Bike image upload failed:", err);
+    res.status(500).json({ error: "Failed to save image" });
+  }
+});
+
+app.put("/api/bike-images/:gearId/:filename", bikeImageUpload, (req, res) => {
+  const manifest = readBikeManifest();
+  const target = resolveBikeImage(manifest, req.params.gearId, req.params.filename);
+  if (!target) return res.status(404).json({ error: "Image not found" });
+  const v = validateBikeImageRequest(req, res);
+  if (!v) return;
+  try {
+    const dir = path.join(BIKE_IMAGES_DIR, v.gearId);
+    const name = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${v.ext}`;
+    fs.writeFileSync(path.join(dir, name), req.body);
+    manifest[v.gearId][target.index] = name;
+    writeBikeManifest(manifest);
+    fs.rmSync(target.file, { force: true });
+    res.json({ gearId: v.gearId, images: bikeImageUrls(manifest, v.gearId) });
+  } catch (err) {
+    console.error("Bike image replace failed:", err);
+    res.status(500).json({ error: "Failed to replace image" });
+  }
+});
+
+app.delete("/api/bike-images/:gearId/:filename", (req, res) => {
+  const manifest = readBikeManifest();
+  const target = resolveBikeImage(manifest, req.params.gearId, req.params.filename);
+  if (!target) return res.status(404).json({ error: "Image not found" });
+  try {
+    manifest[req.params.gearId].splice(target.index, 1);
+    if (!manifest[req.params.gearId].length) delete manifest[req.params.gearId];
+    writeBikeManifest(manifest);
+    fs.rmSync(target.file, { force: true });
+    res.json({ gearId: req.params.gearId, images: bikeImageUrls(manifest, req.params.gearId) });
+  } catch (err) {
+    console.error("Bike image delete failed:", err);
+    res.status(500).json({ error: "Failed to delete image" });
+  }
+});
+
+app.use("/api/bike-images", (err, req, res, next) => {
+  if (err && err.type === "entity.too.large") return res.status(413).json({ error: "Image exceeds 15 MB limit" });
+  if (err) return res.status(400).json({ error: "Invalid request" });
+  next();
+});
+
 app.listen(5000, "0.0.0.0", () => console.log("Server running on LAN"));
