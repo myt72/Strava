@@ -40,3 +40,9 @@ Default (first in the picker)
 **Print / Vintage**: `googie`, `vintage-cartoon`, `ledger-1920s`, `pulp-tabloid`, `yellow-pages`, `catalog-midcentury`
 
 **Playful / Bold**: `neo-brutalist`, `dark-pop`, `comic-letters`
+
+**Album / Poster / Pop-Art**: `blue-note`, `saul-bass`, `memphis`
+
+**Data Terminals / Technical**: `sportsbook`, `trading-terminal`, `glass-cockpit`, `bauhaus`
+
+**Modern / Glass**: `liquid-glass`

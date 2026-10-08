@@ -2,7 +2,7 @@ const THEME_STORAGE_KEY = "strava:theme";
 const COLOR_MODE_STORAGE_KEY = "strava:colorMode";
 const HIDDEN_THEMES_STORAGE_KEY = "strava:hiddenThemes";
 
-const THEME_GROUPS = ["Sci-Fi / Retro-Tech", "Editorial / Minimal", "Print / Vintage", "Playful / Bold"];
+const THEME_GROUPS = ["Sci-Fi / Retro-Tech", "Editorial / Minimal", "Print / Vintage", "Playful / Bold", "Album / Poster / Pop-Art", "Data Terminals / Technical", "Modern / Glass"];
 
 const THEMES = {
   default: { label: "Default", css: null, modes: ["light", "dark"], swatch: ["#f3f7ff", "#ffffff", "#4f8cff", "#9b6bff"] },
@@ -33,6 +33,17 @@ const THEMES = {
   "neo-brutalist": { label: "Neo-Brutalist Comic", css: "themes/neo-brutalist.css", modes: ["light"], group: 3, swatch: ["#ffe94d", "#f1e4ff", "#5b2bff", "#ff3d81"] },
   "dark-pop": { label: "Spotify Wrapped Dark-Pop", css: "themes/dark-pop.css", modes: ["dark"], group: 3, swatch: ["#0b0b0b", "#151515", "#1ed760", "#ff3ea5"] },
   "comic-letters": { label: "Retro Comic Book (Ben-Day)", css: "themes/comic-letters.css", modes: ["light"], group: 3, swatch: ["#fff7d6", "#ffffff", "#c8006b", "#0077c8"] },
+  // Album / Poster / Pop-Art
+  "blue-note": { label: "Blue Note Jazz Grid", css: "themes/blue-note.css", modes: ["dark"], group: 4, swatch: ["#101735", "#f8f6ed", "#e5b84a"] },
+  "saul-bass": { label: "Saul Bass Silhouette (Vertigo)", css: "themes/saul-bass.css", modes: ["light"], group: 4, swatch: ["#e54b22", "#17120f", "#fff0d4"] },
+  memphis: { label: "Memphis Milano (80s Pop-Art)", css: "themes/memphis.css", modes: ["light"], group: 4, swatch: ["#f5d9e8", "#fffdf7", "#13a9a1", "#ec3b86"] },
+  // Data Terminals / Technical
+  sportsbook: { label: "Sportsbook Betting Board", css: "themes/sportsbook.css", modes: ["dark"], group: 5, swatch: ["#0e1116", "#20262f", "#00e676", "#ffd700"] },
+  "trading-terminal": { label: "Financial Trading Terminal", css: "themes/trading-terminal.css", modes: ["dark"], group: 5, swatch: ["#12161f", "#202631", "#00d2ff", "#f04f5d"] },
+  "glass-cockpit": { label: "Glass Cockpit (Tactical Avionics)", css: "themes/glass-cockpit.css", modes: ["dark"], group: 5, swatch: ["#0a1118", "#202a30", "#ffb300", "#00f5ff"] },
+  bauhaus: { label: "Bauhaus Technical", css: "themes/bauhaus.css", modes: ["light"], group: 5, swatch: ["#f4f4f6", "#0055a5", "#e5a93c", "#111111"] },
+  // Modern / Glass
+  "liquid-glass": { label: "Liquid Glass (iOS-style Translucency)", css: "themes/liquid-glass.css", modes: ["dark"], group: 6, swatch: ["#11172a", "#252d48", "#7f8cff", "#40d8ce"] },
 };
 
 // Legacy builds stored "dark"/"light" under strava:theme; move that to strava:colorMode.
