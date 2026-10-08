@@ -22,7 +22,12 @@ Default lives in `public/styles.css` and is never edited for a theme. Every othe
 
 Choose **Manage themes…** from the theme picker or the Advanced Actions menu to show or hide themes from the picker. Changes take effect immediately. **Show all** restores every theme, while **Hide all except Default and current** keeps a route back to Default and protects the active theme. Default and the active theme cannot be hidden.
 
-Hidden theme IDs are stored as a JSON array in `localStorage["strava:hiddenThemes"]`; newly added themes are visible by default. Hiding a theme only removes it from the picker—saved theme IDs still load normally. Unknown or removed IDs in storage are ignored, and picker groups with no visible themes are omitted.
+Hidden theme IDs are saved on the server in `settings.json` at the repo root (gitignored), so they survive restarts and are the same in every browser and address. `localStorage["strava:hiddenThemes"]` is kept as a fast cache and offline fallback: if the server can't be reached the dialog shows "Saved locally only" and syncs on the next change or page load. Existing browser-only selections are pushed to the server automatically the first time. Newly added themes are visible by default. Hiding a theme only removes it from the picker—saved theme IDs still load normally. Unknown or removed IDs are ignored, and picker groups with no visible themes are omitted.
+
+Endpoints:
+
+- `GET /api/settings` – returns `{ "hiddenThemes": [...], "hasHiddenThemes": bool }`.
+- `PUT /api/settings/hidden-themes` – body `{ "hiddenThemes": ["lcars", ...] }` (max 100 IDs matching `/^[a-z0-9-]{1,40}$/`); returns the saved list, or 400 on invalid input.
 
 ## Themes
 

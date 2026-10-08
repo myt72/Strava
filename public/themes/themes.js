@@ -100,6 +100,62 @@ function saveHiddenThemeIds(hiddenIds) {
   localStorage.setItem(HIDDEN_THEMES_STORAGE_KEY, JSON.stringify(validIds));
 }
 
+const THEME_API_BASE = "http://192.168.0.115:5000";
+const HIDDEN_THEMES_DIRTY_KEY = "strava:hiddenThemesDirty";
+let hiddenThemesSyncTimer = null;
+
+function setThemeSyncNote(failed) {
+  const note = document.getElementById("theme-manager-sync-note");
+  if (note) note.hidden = !failed;
+}
+
+async function pushHiddenThemes() {
+  const hiddenThemes = Array.from(getHiddenThemeIds());
+  try {
+    const res = await fetch(`${THEME_API_BASE}/api/settings/hidden-themes`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hiddenThemes })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    localStorage.removeItem(HIDDEN_THEMES_DIRTY_KEY);
+    setThemeSyncNote(false);
+    return true;
+  } catch (error) {
+    localStorage.setItem(HIDDEN_THEMES_DIRTY_KEY, "1");
+    setThemeSyncNote(true);
+    return false;
+  }
+}
+
+function scheduleHiddenThemesSync() {
+  localStorage.setItem(HIDDEN_THEMES_DIRTY_KEY, "1");
+  clearTimeout(hiddenThemesSyncTimer);
+  hiddenThemesSyncTimer = setTimeout(pushHiddenThemes, 300);
+}
+
+async function syncHiddenThemesFromServer() {
+  let settings;
+  try {
+    const res = await fetch(`${THEME_API_BASE}/api/settings`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    settings = await res.json();
+  } catch (error) {
+    return;
+  }
+  if (!settings || typeof settings !== "object") return;
+  const local = getHiddenThemeIds();
+  const dirty = localStorage.getItem(HIDDEN_THEMES_DIRTY_KEY) === "1";
+  if (dirty || (!settings.hasHiddenThemes && local.size)) {
+    await pushHiddenThemes();
+    return;
+  }
+  if (!Array.isArray(settings.hiddenThemes)) return;
+  saveHiddenThemeIds(new Set(settings.hiddenThemes.filter(id => typeof id === "string")));
+  renderThemePicker();
+  updateThemeManagerAvailability();
+}
+
 function getActiveThemeId() {
   const active = document.body.dataset.theme;
   return Object.prototype.hasOwnProperty.call(THEMES, active) ? active : getSavedThemeId();
@@ -214,6 +270,7 @@ function setThemeVisibility(id, shown) {
   if (shown) hidden.delete(id);
   else if (id !== "default" && id !== getActiveThemeId()) hidden.add(id);
   saveHiddenThemeIds(hidden);
+  scheduleHiddenThemesSync();
   renderThemePicker();
   updateThemeManagerAvailability();
 }
@@ -241,12 +298,14 @@ function initThemePicker() {
     });
     document.getElementById("theme-manager-show-all")?.addEventListener("click", () => {
       saveHiddenThemeIds(new Set());
+      scheduleHiddenThemesSync();
       renderThemePicker();
       updateThemeManagerAvailability();
     });
     document.getElementById("theme-manager-hide-all")?.addEventListener("click", () => {
       const hidden = new Set(Object.keys(THEMES).filter(id => id !== "default" && id !== getActiveThemeId()));
       saveHiddenThemeIds(hidden);
+      scheduleHiddenThemesSync();
       renderThemePicker();
       updateThemeManagerAvailability();
     });
@@ -254,3 +313,5 @@ function initThemePicker() {
     document.getElementById("theme-manager-close")?.addEventListener("click", () => dialog.close());
   }
 }
+
+window.addEventListener("load", syncHiddenThemesFromServer);

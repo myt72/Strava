@@ -1387,4 +1387,53 @@ app.use("/api/bike-images", (err, req, res, next) => {
   next();
 });
 
+const SETTINGS_FILE = require("path").join(__dirname, "settings.json");
+const THEME_ID_RE = /^[a-z0-9-]{1,40}$/;
+const MAX_HIDDEN_THEMES = 100;
+
+function loadSettings() {
+  try {
+    if (!fs.existsSync(SETTINGS_FILE)) return {};
+    const parsed = JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8"));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch (err) {
+    console.error("Settings corrupted:", err);
+    return {};
+  }
+}
+
+function saveSettings(data) {
+  const tmp = SETTINGS_FILE + ".tmp";
+  fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
+  fs.renameSync(tmp, SETTINGS_FILE);
+}
+
+app.get("/api/settings", (req, res) => {
+  const settings = loadSettings();
+  const out = {};
+  if (Array.isArray(settings.hiddenThemes)) {
+    out.hiddenThemes = settings.hiddenThemes.filter(id => typeof id === "string" && THEME_ID_RE.test(id));
+  } else {
+    out.hiddenThemes = [];
+  }
+  res.json(Object.assign(out, { hasHiddenThemes: Array.isArray(settings.hiddenThemes) }));
+});
+
+app.put("/api/settings/hidden-themes", (req, res) => {
+  const list = req.body && req.body.hiddenThemes;
+  if (!Array.isArray(list) || list.length > MAX_HIDDEN_THEMES ||
+      !list.every(id => typeof id === "string" && THEME_ID_RE.test(id))) {
+    return res.status(400).json({ error: "hiddenThemes must be an array of up to 100 theme IDs ([a-z0-9-], 1-40 chars)" });
+  }
+  try {
+    const settings = loadSettings();
+    settings.hiddenThemes = [...new Set(list)];
+    saveSettings(settings);
+    res.json({ hiddenThemes: settings.hiddenThemes });
+  } catch (err) {
+    console.error("Failed to save settings:", err);
+    res.status(500).json({ error: "Failed to save settings" });
+  }
+});
+
 app.listen(5000, "0.0.0.0", () => console.log("Server running on LAN"));
