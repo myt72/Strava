@@ -2741,7 +2741,7 @@ function renderSegmentDistanceHighlights(items, gearDetails = {}) {
 const BIKE_IMAGES_API = "http://192.168.0.115:5000/api/bike-images";
 const BIKE_SLIDESHOW_MS = 4000;
 let bikeImageManifest = {};
-const bikeGallery = { gid: null, name: "", index: 0, timer: null, version: {} };
+const bikeGallery = { gid: null, name: "", index: 0, timer: null, version: {}, busy: false };
 
 function bikeGalleryEls() {
   return {
@@ -2848,6 +2848,48 @@ function openBikeGallery(gid, name) {
   if (!els.dialog.open) els.dialog.showModal();
 }
 
+const BIKE_MAX_BYTES = 15 * 1024 * 1024;
+const HEIC_LIB_URL = "vendor/heic2any.min.js";
+let heicLibPromise = null;
+
+function isHeicFile(file) {
+  return /^image\/(heic|heif)(-sequence)?$/i.test(file.type || "") || /\.(heic|heif)$/i.test(file.name || "");
+}
+
+function loadHeicLib() {
+  if (window.heic2any) return Promise.resolve(window.heic2any);
+  if (!heicLibPromise) {
+    heicLibPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = HEIC_LIB_URL;
+      script.onload = () => (window.heic2any ? resolve(window.heic2any) : reject(new Error("HEIC converter unavailable")));
+      script.onerror = () => reject(new Error("Could not load HEIC converter"));
+      document.head.appendChild(script);
+    }).catch(err => {
+      heicLibPromise = null;
+      throw err;
+    });
+  }
+  return heicLibPromise;
+}
+
+async function convertHeicToJpeg(file) {
+  const heic2any = await loadHeicLib();
+  const result = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 });
+  const blob = Array.isArray(result) ? result[0] : result;
+  if (!blob) throw new Error("Empty conversion result");
+  return new File([blob], file.name.replace(/\.[^.]*$/, "") + ".jpg", { type: "image/jpeg" });
+}
+
+function setBikeGalleryBusy(busy) {
+  const els = bikeGalleryEls();
+  bikeGallery.busy = busy;
+  document.querySelectorAll(".bike-gallery-add-btn").forEach(b => { b.disabled = busy; });
+  els.replace.disabled = busy;
+  els.remove.disabled = busy;
+  els.dialog.toggleAttribute("aria-busy", busy);
+}
+
 async function bikeImageRequest(method, filename, file) {
   const url = `${BIKE_IMAGES_API}/${encodeURIComponent(bikeGallery.gid)}${filename ? `/${encodeURIComponent(filename)}` : ""}`;
   const res = await fetch(url, {
@@ -2862,38 +2904,62 @@ async function bikeImageRequest(method, filename, file) {
   return data;
 }
 
-async function addBikeImages(files) {
-  const images = Array.from(files || []).filter(f => f.type.startsWith("image/"));
-  if (!images.length) return setBikeGalleryStatus("Please choose image files.");
-  stopBikeSlideshow();
-  let failed = 0;
-  let lastError = "";
-  for (let i = 0; i < images.length; i++) {
-    setBikeGalleryStatus(`Uploading ${i + 1} of ${images.length}...`);
+// Converts HEIC/HEIF if needed and uploads; returns an error message or "".
+async function sendBikeImage(method, filename, file, progress) {
+  let upload = file;
+  if (isHeicFile(file)) {
+    setBikeGalleryStatus(`${progress}Converting HEIC: ${file.name}...`);
     try {
-      await bikeImageRequest("POST", null, images[i]);
-      bikeGallery.index = bikeGalleryUrls().length - 1;
+      upload = await convertHeicToJpeg(file);
     } catch (err) {
-      failed++;
-      lastError = err.message;
+      console.warn("HEIC conversion failed", err);
+      return `Couldn't convert ${file.name}`;
     }
   }
+  if (upload.size > BIKE_MAX_BYTES) return `${file.name} is larger than 15 MB${upload !== file ? " after conversion" : ""}`;
+  setBikeGalleryStatus(`${progress}Uploading ${file.name}...`);
+  try {
+    await bikeImageRequest(method, filename, upload);
+    return "";
+  } catch (err) {
+    return `${file.name}: ${err.message}`;
+  }
+}
+
+async function addBikeImages(files) {
+  if (bikeGallery.busy) return;
+  const images = Array.from(files || []).filter(f => (f.type || "").startsWith("image/") || isHeicFile(f));
+  if (!images.length) return setBikeGalleryStatus("Please choose image files.");
+  stopBikeSlideshow();
+  setBikeGalleryBusy(true);
+  const errors = [];
+  try {
+    for (let i = 0; i < images.length; i++) {
+      const before = bikeGalleryUrls().length;
+      const error = await sendBikeImage("POST", null, images[i], `Uploading ${i + 1} of ${images.length}: `);
+      if (error) errors.push(error);
+      else if (bikeGalleryUrls().length > before) bikeGallery.index = bikeGalleryUrls().length - 1;
+    }
+  } finally {
+    setBikeGalleryBusy(false);
+  }
   renderBikeGallery();
-  setBikeGalleryStatus(failed ? `${failed} upload(s) failed: ${lastError}` : "");
+  setBikeGalleryStatus(errors.join("; "));
 }
 
 async function replaceBikeImage(file) {
   const url = bikeGalleryUrls()[bikeGallery.index];
-  if (!file || !url) return;
+  if (!file || !url || bikeGallery.busy) return;
   stopBikeSlideshow();
-  setBikeGalleryStatus("Replacing...");
+  setBikeGalleryBusy(true);
+  let error = "";
   try {
-    await bikeImageRequest("PUT", bikeGalleryFilename(url), file);
-    setBikeGalleryStatus("");
-  } catch (err) {
-    setBikeGalleryStatus(err.message);
+    error = await sendBikeImage("PUT", bikeGalleryFilename(url), file, "Replacing: ");
+  } finally {
+    setBikeGalleryBusy(false);
   }
   renderBikeGallery();
+  setBikeGalleryStatus(error);
 }
 
 async function removeBikeImage() {
