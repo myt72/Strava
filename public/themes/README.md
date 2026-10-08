@@ -15,8 +15,14 @@ Default lives in `public/styles.css` and is never edited for a theme. Every othe
 ## Adding a theme
 
 1. Create `themes/<id>.css`.
-2. Add it to `THEMES` in `themes.js` with a `group` index (into `THEME_GROUPS`).
+2. Add it to `THEMES` in `themes.js` with a `group` index (into `THEME_GROUPS`) and a `swatch` array of 3–4 representative CSS colors.
 3. Add it to the list below.
+
+## Hiding and restoring themes
+
+Choose **Manage themes…** from the theme picker or the Advanced Actions menu to show or hide themes from the picker. Changes take effect immediately. **Show all** restores every theme, while **Hide all except Default and current** keeps a route back to Default and protects the active theme. Default and the active theme cannot be hidden.
+
+Hidden theme IDs are stored as a JSON array in `localStorage["strava:hiddenThemes"]`; newly added themes are visible by default. Hiding a theme only removes it from the picker—saved theme IDs still load normally. Unknown or removed IDs in storage are ignored, and picker groups with no visible themes are omitted.
 
 ## Themes
 
