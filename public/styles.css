@@ -1720,3 +1720,57 @@ body[data-theme] #theme-manager .theme-manager-swatch {
     flex-direction: column;
   }
 }
+
+.bike-name-btn {
+  all: unset;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  border-radius: 4px;
+}
+
+.bike-name-btn:hover { text-decoration: underline; }
+.bike-name-btn:focus-visible { outline: 2px solid var(--accent, #2563eb); outline-offset: 2px; }
+
+body[data-theme] #bike-gallery {
+  all: revert;
+  box-sizing: border-box;
+  width: min(900px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  max-height: 92vh;
+  padding: 18px;
+  border: 1px solid var(--border, #798fb7);
+  border-radius: 14px;
+  background: var(--surface-strong, #ffffff);
+  color: var(--text, #111827);
+  box-shadow: var(--shadow, 0 20px 60px rgba(16, 24, 40, 0.2));
+  font: 15px/1.45 "Segoe UI", Arial, sans-serif;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+#bike-gallery::backdrop { background: rgba(0, 0, 0, 0.75); }
+#bike-gallery.dragging { outline: 3px dashed var(--accent, #2563eb); outline-offset: -8px; }
+#bike-gallery[open] { display: flex; flex-direction: column; gap: 12px; }
+#bike-gallery h2 { margin: 0; font-size: 1.2rem; }
+.bike-gallery-header, .bike-gallery-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.bike-gallery-stage { position: relative; display: flex; align-items: center; justify-content: center; min-height: 240px; }
+.bike-gallery-img { max-width: 100%; max-height: 68vh; width: 100%; object-fit: contain; cursor: default; }
+.bike-gallery-stage.has-multiple .bike-gallery-img { cursor: pointer; }
+.bike-gallery-empty { text-align: center; }
+.bike-gallery-hint { opacity: 0.7; font-size: 0.85rem; }
+.bike-gallery-counter { font-variant-numeric: tabular-nums; opacity: 0.8; }
+.bike-gallery-status { flex: 1; font-size: 0.85rem; opacity: 0.85; }
+.bike-gallery-tools { display: flex; gap: 14px; flex-wrap: wrap; }
+.bike-gallery-link { all: unset; cursor: pointer; font-size: 0.85rem; opacity: 0.75; text-decoration: underline; }
+.bike-gallery-link:hover, .bike-gallery-link:focus-visible { opacity: 1; }
+.bike-gallery-link:focus-visible, .bike-gallery-nav:focus-visible { outline: 2px solid var(--accent, #2563eb); outline-offset: 2px; }
+.bike-gallery-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 36px; height: 56px; border: 0; border-radius: 8px; background: rgba(0, 0, 0, 0.35); color: #fff; font-size: 1.8rem; cursor: pointer; opacity: 0.5; }
+.bike-gallery-nav:hover, .bike-gallery-nav:focus-visible { opacity: 1; }
+.bike-gallery-nav[hidden] { display: none; }
+.bike-gallery-nav.prev { left: 6px; }
+.bike-gallery-nav.next { right: 6px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .bike-gallery-img { transition: opacity 0.2s ease; }
+}
