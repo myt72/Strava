@@ -6,7 +6,7 @@ body[data-theme="matrix-thriller"] {
   --danger: #ff7373; --success: #39ff66; --warning: #e4e878; --shadow: 0 0 18px #00ff6622; --shadow-soft: 0 0 9px #00ff6618;
   --radius: 3px; --radius-sm: 2px; --glass: none; --t-on-accent: #071009; --t-track: #283c2e;
   --t-fill-distance: #39ff66; --t-fill-time: #a8ff70; --t-fill-elevation: #46d7be;
-  font-family: "OCR A Std", "Courier New", monospace; background: var(--bg-2); color: var(--text);
+  font-family: "OCR A Std", "Courier New", monospace; background: #050805; color: var(--text);
 }
 body[data-theme="matrix-thriller"] .side-rail { background: #0b100d; border-right: 1px solid #3b6c49; }
 body[data-theme="matrix-thriller"] .brand-orb { background: #39ff66; box-shadow: 0 0 16px #39ff6688; }
@@ -49,3 +49,6 @@ body[data-theme="matrix-thriller"] .annual-breakdown-mode-btn, body[data-theme="
 body[data-theme="matrix-thriller"] .filter-field select, body[data-theme="matrix-thriller"] .filter-field input,
 body[data-theme="matrix-thriller"] .bike-controls input, body[data-theme="matrix-thriller"] .bike-controls select,
 body[data-theme="matrix-thriller"] .side-meta, body[data-theme="matrix-thriller"] .dropdown-menu { border-radius: var(--radius-sm); }
+body[data-theme="matrix-thriller"] #app-shell { position: relative; z-index: 1; background: transparent; }
+body[data-theme="matrix-thriller"] .dropdown-menu { background: #0f1711; z-index: 200; }
+body[data-theme="matrix-thriller"] #theme-manager, body[data-theme="matrix-thriller"] #bike-gallery { background: #0f1711; }

@@ -12,6 +12,14 @@ Default lives in `public/styles.css` and is never edited for a theme. Every othe
 - Themes are self-contained. Share a file only between specific themes, and never load it for Default.
 - Decorative DOM, if ever needed, must carry `data-theme-decor` so `applyTheme()` removes it on switch.
 
+## Optional per-theme script (decor hook)
+
+A registry entry may add `script: "themes/<id>.js"`. After the stylesheet is applied, `applyTheme()` loads the script once (the load promise is cached) and calls `window.ThemeDecor[id].start()`. On every switch it first calls `stop()` for the previously active decor theme. Themes without `script` make no extra requests; a load failure only logs a `console.warn`.
+
+Contract: the script registers `window.ThemeDecor = window.ThemeDecor || {}; window.ThemeDecor["<id>"] = { start(), stop() }`. Created elements must carry `data-theme-decor`, the decor must respect `prefers-reduced-motion` (static frame, no animation), and `stop()` must fully clean up (cancel animation frames, remove listeners and elements).
+
+`matrix-thriller` uses this for its animated Matrix digital-rain canvas (`themes/matrix-thriller.js`), a fixed, dim, click-through canvas behind the page.
+
 ## Adding a theme
 
 1. Create `themes/<id>.css`.

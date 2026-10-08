@@ -54,7 +54,7 @@ const THEMES = {
   egyptian: { label: "Ancient Egyptian Papyrus", css: "themes/egyptian.css", modes: ["light"], group: 7, swatch: ["#edc9af", "#002fa7", "#673616"] },
   // Cinema / Album / Print
   prism: { label: "Dark Side Prism", css: "themes/prism.css", modes: ["dark"], group: 8, swatch: ["#000000", "#ffffff", "#ff6a54", "#57e887"] },
-  "matrix-thriller": { label: "90s Cyber-Thriller (Matrix / Hackers)", css: "themes/matrix-thriller.css", modes: ["dark"], group: 8, swatch: ["#111612", "#172019", "#39ff66", "#00c7a5"] },
+  "matrix-thriller": { label: "90s Cyber-Thriller (Matrix / Hackers)", css: "themes/matrix-thriller.css", modes: ["dark"], group: 8, swatch: ["#111612", "#172019", "#39ff66", "#00c7a5"], script: "themes/matrix-thriller.js" },
   encyclopedia: { label: "Vintage Encyclopedia / Atlas", css: "themes/encyclopedia.css", modes: ["light"], group: 8, swatch: ["#fdfbf7", "#f2eee5", "#36556c", "#785c3d"] },
   // Exotic / Novelty
   "tiki-lounge": { label: "Retro Tiki Lounge", css: "themes/tiki-lounge.css", modes: ["dark"], group: 9, swatch: ["#1a2421", "#d2b57d", "#22d9c3", "#ff8455"] },
@@ -89,11 +89,49 @@ function applyDefaultColorMode() {
   document.body.classList.toggle("dark", dark);
 }
 
+const themeScriptPromises = {};
+let activeDecorId = null;
+
+function loadThemeScript(src) {
+  if (!themeScriptPromises[src]) {
+    themeScriptPromises[src] = new Promise((resolve, reject) => {
+      const el = document.createElement("script");
+      el.src = src;
+      el.onload = resolve;
+      el.onerror = () => reject(new Error("Failed to load " + src));
+      document.head.appendChild(el);
+    }).catch(error => {
+      delete themeScriptPromises[src];
+      throw error;
+    });
+  }
+  return themeScriptPromises[src];
+}
+
+function stopThemeDecor() {
+  const previous = activeDecorId;
+  activeDecorId = null;
+  try {
+    window.ThemeDecor?.[previous]?.stop?.();
+  } catch (error) {
+    console.warn("Theme decor stop failed", error);
+  }
+}
+
+function startThemeDecor(themeId, src) {
+  activeDecorId = themeId;
+  loadThemeScript(src).then(() => {
+    if (activeDecorId !== themeId || document.body.dataset.theme !== themeId) return;
+    window.ThemeDecor?.[themeId]?.start?.();
+  }).catch(error => console.warn("Theme decor unavailable", error));
+}
+
 function applyTheme(id) {
   migrateLegacyColorMode();
   const themeId = Object.prototype.hasOwnProperty.call(THEMES, id) ? id : "default";
   const theme = THEMES[themeId];
 
+  stopThemeDecor();
   document.getElementById("theme-stylesheet")?.remove();
   document.querySelectorAll("[data-theme-decor]").forEach(el => el.remove());
 
@@ -109,6 +147,8 @@ function applyTheme(id) {
   } else {
     applyDefaultColorMode();
   }
+
+  if (theme.script) startThemeDecor(themeId, theme.script);
 
   const toggle = document.getElementById("theme-toggle");
   if (toggle) toggle.hidden = themeId !== "default";
