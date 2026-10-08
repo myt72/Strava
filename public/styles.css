@@ -1730,6 +1730,9 @@ body[data-theme] #theme-manager .theme-manager-swatch {
 }
 
 .bike-name-btn:hover { text-decoration: underline; }
+.bike-photo-badge { display: inline-flex; align-items: center; gap: 2px; margin-left: 6px; vertical-align: middle; white-space: nowrap; color: var(--text-muted, #6b7280); font-size: 0.75rem; }
+.bike-photo-badge svg { width: 15px; height: 15px; flex: none; }
+.bike-name-btn:hover .bike-photo-badge, .bike-name-btn:focus-visible .bike-photo-badge { color: var(--accent, #2563eb); text-decoration: none; }
 .bike-name-btn:focus-visible { outline: 2px solid var(--accent, #2563eb); outline-offset: 2px; }
 
 body[data-theme] #bike-gallery {
@@ -1756,6 +1759,8 @@ body[data-theme] #bike-gallery {
 .bike-gallery-header, .bike-gallery-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .bike-gallery-stage { position: relative; display: flex; align-items: center; justify-content: center; min-height: 240px; }
 .bike-gallery-img { max-width: 100%; max-height: 68vh; width: 100%; object-fit: contain; cursor: default; }
+.bike-gallery-img.loading { opacity: 0; visibility: hidden; }
+.bike-gallery-stage.is-loading::after { content: "Loading\2026"; position: absolute; font-size: 0.85rem; opacity: 0.7; }
 .bike-gallery-stage.has-multiple .bike-gallery-img { cursor: pointer; }
 .bike-gallery-empty { text-align: center; }
 .bike-gallery-hint { opacity: 0.7; font-size: 0.85rem; }
@@ -1772,7 +1777,7 @@ body[data-theme] #bike-gallery {
 .bike-gallery-nav.next { right: 6px; }
 
 @media (prefers-reduced-motion: no-preference) {
-  .bike-gallery-img { transition: opacity 0.2s ease; }
+  .bike-gallery-img { transition: opacity 0.12s ease; }
 }
 
 .bike-gallery-link:disabled { cursor: default; opacity: 0.4; text-decoration: none; }
