@@ -1774,3 +1774,5 @@ body[data-theme] #bike-gallery {
 @media (prefers-reduced-motion: no-preference) {
   .bike-gallery-img { transition: opacity 0.2s ease; }
 }
+
+.bike-gallery-link:disabled { cursor: default; opacity: 0.4; text-decoration: none; }
