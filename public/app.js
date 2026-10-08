@@ -2165,7 +2165,7 @@ function renderBikeRows(rows, rideInsights) {
               <circle cx="19" cy="17" r="3" stroke="currentColor" stroke-width="2" fill="none"></circle>
               <path d="M5 17l6-10 4 6h4" stroke="currentColor" stroke-width="2" fill="none"></path>
             </svg>
-            <button type="button" class="bike-name-btn" data-gid="${escapeHtml(row.gid)}" data-name="${escapeHtml(row.name)}" aria-haspopup="dialog" title="View bike photos">${escapeHtml(row.name)}</button>
+            <button type="button" class="bike-name-btn" data-gid="${escapeHtml(row.gid)}" data-name="${escapeHtml(row.name)}" aria-haspopup="dialog" title="${bikePhotoLabel(row.gid)}" aria-label="${escapeHtml(row.name)}${bikePhotoCount(row.gid) ? ` (${bikePhotoCount(row.gid)} photo${bikePhotoCount(row.gid) === 1 ? "" : "s"})` : ""}">${escapeHtml(row.name)}${bikePhotoBadgeHtml(row.gid)}</button>
           </div>
           <div class="bike-card-actions">
             <button class="pin-button ${row.isPinned ? "pinned" : ""}" onclick="pinBike('${row.gid}')">${row.isPinned ? "Pinned" : "Pin"}</button>
@@ -2741,7 +2741,7 @@ function renderSegmentDistanceHighlights(items, gearDetails = {}) {
 const BIKE_IMAGES_API = "http://192.168.0.115:5000/api/bike-images";
 const BIKE_SLIDESHOW_MS = 4000;
 let bikeImageManifest = {};
-const bikeGallery = { gid: null, name: "", index: 0, timer: null, version: {}, busy: false };
+const bikeGallery = { imgUrl: null, gid: null, name: "", index: 0, timer: null, version: {}, busy: false };
 
 function bikeGalleryEls() {
   return {
@@ -2762,6 +2762,32 @@ function bikeGalleryEls() {
   };
 }
 
+function bikePhotoCount(gid) {
+  return (bikeImageManifest[gid] || []).length;
+}
+
+function bikePhotoLabel(gid) {
+  const n = bikePhotoCount(gid);
+  return n ? `View bike photos (${n} photo${n === 1 ? "" : "s"})` : "View bike photos";
+}
+
+function bikePhotoBadgeHtml(gid) {
+  const n = bikePhotoCount(gid);
+  if (!n) return "";
+  return `<span class="bike-photo-badge" aria-hidden="true"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3l2-2h6l2 2h3v12H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg>${n > 1 ? `<span class="bike-photo-count">${n}</span>` : ""}</span>`;
+}
+
+let bikeCardsStale = false;
+
+function refreshBikeCardPhotoIcons() {
+  if (bikeGalleryEls().dialog?.open) {
+    bikeCardsStale = true;
+    return;
+  }
+  bikeCardsStale = false;
+  updateBikeFilters();
+}
+
 function bikeGalleryUrls() {
   return bikeImageManifest[bikeGallery.gid] || [];
 }
@@ -2777,6 +2803,7 @@ async function loadBikeImages() {
   } catch (err) {
     console.warn("Could not load bike images", err);
   }
+  refreshBikeCardPhotoIcons();
 }
 
 function setBikeGalleryStatus(message) {
@@ -2795,10 +2822,17 @@ function renderBikeGallery() {
   if (count) {
     const url = urls[bikeGallery.index];
     const v = bikeGallery.version[bikeGalleryFilename(url)];
-    els.img.src = `http://192.168.0.115:5000${url}${v ? `?v=${v}` : ""}`;
+    const full = `http://192.168.0.115:5000${url}${v ? `?v=${v}` : ""}`;
     els.img.alt = `${bikeGallery.name} photo ${bikeGallery.index + 1} of ${count}`;
+    if (bikeGallery.imgUrl !== full || !els.img.getAttribute("src")) {
+      bikeGallery.imgUrl = full;
+      els.img.classList.add("loading");
+      els.stage.classList.add("is-loading");
+      els.img.src = full;
+      if (els.img.complete && els.img.naturalWidth > 0) revealBikeGalleryImage(full);
+    }
   } else {
-    els.img.removeAttribute("src");
+    clearBikeGalleryImage();
   }
   els.counter.hidden = count < 2;
   els.counter.textContent = `${bikeGallery.index + 1} / ${count}`;
@@ -2808,6 +2842,21 @@ function renderBikeGallery() {
   els.replace.hidden = count === 0;
   els.remove.hidden = count === 0;
   if (count < 2) stopBikeSlideshow();
+}
+
+function revealBikeGalleryImage(url) {
+  const els = bikeGalleryEls();
+  if (url !== bikeGallery.imgUrl) return;
+  els.img.classList.remove("loading");
+  els.stage.classList.remove("is-loading");
+}
+
+function clearBikeGalleryImage() {
+  const els = bikeGalleryEls();
+  bikeGallery.imgUrl = null;
+  els.img.classList.add("loading");
+  els.stage.classList.remove("is-loading");
+  els.img.removeAttribute("src");
 }
 
 function stopBikeSlideshow() {
@@ -2844,6 +2893,7 @@ function openBikeGallery(gid, name) {
   bikeGallery.name = name || gid;
   bikeGallery.index = 0;
   setBikeGalleryStatus("");
+  if (!els.dialog.open) clearBikeGalleryImage();
   renderBikeGallery();
   if (!els.dialog.open) els.dialog.showModal();
 }
@@ -2981,6 +3031,16 @@ function initBikeGallery() {
   els.dialog.addEventListener("close", () => {
     stopBikeSlideshow();
     bikeGallery.gid = null;
+    clearBikeGalleryImage();
+    refreshBikeCardPhotoIcons();
+  });
+  els.img.addEventListener("load", () => {
+    if (els.img.getAttribute("src") === bikeGallery.imgUrl) revealBikeGalleryImage(bikeGallery.imgUrl);
+  });
+  els.img.addEventListener("error", () => {
+    if (!els.img.getAttribute("src") || els.img.getAttribute("src") !== bikeGallery.imgUrl) return;
+    els.stage.classList.remove("is-loading");
+    setBikeGalleryStatus("Could not load this photo.");
   });
   els.dialog.addEventListener("click", event => {
     if (event.target === els.dialog) els.dialog.close();
