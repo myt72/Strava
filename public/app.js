@@ -576,7 +576,6 @@ const STORAGE_KEYS = {
   pinnedBikes: "strava:pinnedBikes",
   bikeSearch: "strava:bikeSearch",
   bikeSort: "strava:bikeSort",
-  theme: "strava:theme",
   annualExpandedYears: "strava:annualExpandedYears",
   annualBreakdownMode: "strava:annualBreakdownMode",
   expandedBikeYears: "strava:expandedBikeYears",
@@ -740,23 +739,14 @@ function setLastSyncLabel() {
 }
 
 function toggleTheme() {
+  if (document.body.dataset.theme && document.body.dataset.theme !== "default") return;
   document.body.classList.toggle("dark");
-  localStorage.setItem(STORAGE_KEYS.theme, document.body.classList.contains("dark") ? "dark" : "light");
+  localStorage.setItem(COLOR_MODE_STORAGE_KEY, document.body.classList.contains("dark") ? "dark" : "light");
 }
 
 function applyThemePreference() {
-  const saved = localStorage.getItem(STORAGE_KEYS.theme);
-  if (saved === "dark") {
-    document.body.classList.add("dark");
-    return;
-  }
-  if (saved === "light") {
-    document.body.classList.remove("dark");
-    return;
-  }
-  if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-    document.body.classList.add("dark");
-  }
+  initThemePicker();
+  applyTheme(getSavedThemeId());
 }
 
 function deriveRideInsights(data) {

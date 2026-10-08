@@ -1,0 +1,36 @@
+/* synthwave theme: every selector is scoped to body[data-theme="synthwave"] */
+body[data-theme="synthwave"] {
+  --bg: #1a0b2e;
+  --bg-2: linear-gradient(180deg,#1a0b2e 0%,#2d1150 60%,#4a1161 100%);
+  --surface: rgba(45,17,80,0.75);
+  --surface-strong: rgba(58,22,100,0.92);
+  --surface-muted: rgba(38,14,68,0.85);
+  --surface-deep: #241046;
+  --text: #fdf2ff;
+  --text-muted: #c9a6e8;
+  --border: rgba(255,79,216,0.35);
+  --accent: #ff4fd8;
+  --accent-2: #00e5ff;
+  --distance: #00e5ff;
+  --time: #ffb84d;
+  --elevation: #7dffb0;
+  --danger: #ff4d6d;
+  --success: #3ddc97;
+  --warning: #ffb347;
+  --shadow: 0 0 28px rgba(255,79,216,0.25);
+  --shadow-soft: 0 0 28px rgba(255,79,216,0.25);
+  --radius: 10px;
+  --radius-sm: 6px;
+  --glass: none;
+}
+
+body[data-theme="synthwave"] {
+  font-family: "Trebuchet MS", system-ui, sans-serif;
+  background: var(--bg-2);
+  color: var(--text);
+}
+
+body[data-theme="synthwave"] .tone-distance { background: linear-gradient(90deg, var(--distance), var(--accent)); }
+body[data-theme="synthwave"] .tone-time { background: linear-gradient(90deg, var(--time), var(--accent-2)); }
+
+body[data-theme="synthwave"] h1 { text-shadow: 0 0 14px var(--accent); }

@@ -5,8 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mark YT Strava Dashboard</title>
   <link rel="stylesheet" href="styles.css" />
+  <script src="themes/themes.js"></script>
 </head>
 <body>
+  <script>
+    (function () {
+      try {
+        var id = localStorage.getItem("strava:theme");
+        if (id && id !== "default" && Object.prototype.hasOwnProperty.call(THEMES, id) && THEMES[id].css) {
+          document.body.dataset.theme = id;
+          var l = document.createElement("link");
+          l.id = "theme-stylesheet";
+          l.rel = "stylesheet";
+          l.href = THEMES[id].css;
+          document.head.appendChild(l);
+        }
+      } catch (e) {}
+    })();
+  </script>
   <div id="app-shell">
     <aside class="side-rail">
       <div class="brand-mark">
@@ -43,6 +59,7 @@
         </div>
 
         <div class="utility-actions">
+          <select id="theme-picker" class="menu-trigger secondary-trigger" aria-label="Theme"></select>
           <button
             id="theme-toggle"
             class="menu-trigger secondary-trigger"
