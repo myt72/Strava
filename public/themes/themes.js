@@ -2,7 +2,7 @@ const THEME_STORAGE_KEY = "strava:theme";
 const COLOR_MODE_STORAGE_KEY = "strava:colorMode";
 const HIDDEN_THEMES_STORAGE_KEY = "strava:hiddenThemes";
 
-const THEME_GROUPS = ["Sci-Fi / Retro-Tech", "Editorial / Minimal", "Print / Vintage", "Playful / Bold", "Album / Poster / Pop-Art", "Data Terminals / Technical", "Modern / Glass"];
+const THEME_GROUPS = ["Sci-Fi / Retro-Tech", "Editorial / Minimal", "Print / Vintage", "Playful / Bold", "Album / Poster / Pop-Art", "Data Terminals / Technical", "Modern / Glass", "Time Periods", "Cinema / Album / Print", "Exotic / Novelty", "Modern / Minimal"];
 
 const THEMES = {
   default: { label: "Default", css: null, modes: ["light", "dark"], swatch: ["#f3f7ff", "#ffffff", "#4f8cff", "#9b6bff"] },
@@ -44,6 +44,28 @@ const THEMES = {
   bauhaus: { label: "Bauhaus Technical", css: "themes/bauhaus.css", modes: ["light"], group: 5, swatch: ["#f4f4f6", "#0055a5", "#e5a93c", "#111111"] },
   // Modern / Glass
   "liquid-glass": { label: "Liquid Glass (iOS-style Translucency)", css: "themes/liquid-glass.css", modes: ["dark"], group: 6, swatch: ["#11172a", "#252d48", "#7f8cff", "#40d8ce"] },
+  // Time Periods
+  "western-wanted": { label: "1800s Western Wanted Poster", css: "themes/western-wanted.css", modes: ["light"], group: 7, swatch: ["#ead7b3", "#6e492c", "#1a120b", "#63300c"] },
+  "art-deco-1920s": { label: "1920s Art Deco Jazz Age", css: "themes/art-deco-1920s.css", modes: ["dark"], group: 7, swatch: ["#111111", "#191a18", "#d4af37", "#82c8b6"] },
+  "diner-1950s": { label: "1950s Retro Diner", css: "themes/diner-1950s.css", modes: ["light"], group: 7, swatch: ["#a3e4d7", "#fdfefe", "#f1948a", "#006258"] },
+  "psychedelic-1960s": { label: "1960s Psychedelic Pop", css: "themes/psychedelic-1960s.css", modes: ["light"], group: 7, swatch: ["#ffd166", "#fff8de", "#ef476f", "#392754"] },
+  "disco-1970s": { label: "1970s Disco Inferno", css: "themes/disco-1970s.css", modes: ["dark"], group: 7, swatch: ["#21180f", "#e5a93b", "#556b2f", "#ff9a50"] },
+  "greek-roman": { label: "Ancient Greece / Classical Rome", css: "themes/greek-roman.css", modes: ["light"], group: 7, swatch: ["#f4f6f7", "#4a0e2e", "#315c3d"] },
+  egyptian: { label: "Ancient Egyptian Papyrus", css: "themes/egyptian.css", modes: ["light"], group: 7, swatch: ["#edc9af", "#002fa7", "#673616"] },
+  // Cinema / Album / Print
+  prism: { label: "Dark Side Prism", css: "themes/prism.css", modes: ["dark"], group: 8, swatch: ["#000000", "#ffffff", "#ff6a54", "#57e887"] },
+  "matrix-thriller": { label: "90s Cyber-Thriller (Matrix / Hackers)", css: "themes/matrix-thriller.css", modes: ["dark"], group: 8, swatch: ["#111612", "#172019", "#39ff66", "#00c7a5"] },
+  encyclopedia: { label: "Vintage Encyclopedia / Atlas", css: "themes/encyclopedia.css", modes: ["light"], group: 8, swatch: ["#fdfbf7", "#f2eee5", "#36556c", "#785c3d"] },
+  // Exotic / Novelty
+  "tiki-lounge": { label: "Retro Tiki Lounge", css: "themes/tiki-lounge.css", modes: ["dark"], group: 9, swatch: ["#1a2421", "#d2b57d", "#22d9c3", "#ff8455"] },
+  steampunk: { label: "Steampunk Nautilus", css: "themes/steampunk.css", modes: ["dark"], group: 9, swatch: ["#0b131f", "#d9b56e", "#73a17c", "#17232d"] },
+  // Modern / Minimal
+  "y2k-cyber": { label: "Y2K / Late 90s Cyber (iMac G3)", css: "themes/y2k-cyber.css", modes: ["light"], group: 10, swatch: ["#a9dded", "#f8fcff", "#176a91", "#8d3a1f"] },
+  "dark-academia": { label: "Dark Academia / Library", css: "themes/dark-academia.css", modes: ["light"], group: 10, swatch: ["#2c2119", "#e9dfc8", "#364a35", "#702f38"] },
+  japandi: { label: "Japandi / Wabi-Sabi", css: "themes/japandi.css", modes: ["light"], group: 10, swatch: ["#e9e2d5", "#f5f0e7", "#405340", "#814332"] },
+  "cyber-minimal": { label: "Cyber-Minimalism / Monochrome Slate", css: "themes/cyber-minimal.css", modes: ["dark"], group: 10, swatch: ["#0d0f12", "#191d22", "#f4f6f8", "#b6e8ff"] },
+  "lcars-modern": { label: "LCARS Evolution (Flat TNG)", css: "themes/lcars-modern.css", modes: ["dark"], group: 10, swatch: ["#11131e", "#bda0d8", "#e8ae73", "#e3cf9d"] },
+  "cyberpunk-breach": { label: "Cyberpunk 2077 Breach", css: "themes/cyberpunk-breach.css", modes: ["dark"], group: 10, swatch: ["#120e18", "#fcee0a", "#ff6259", "#101523"] },
 };
 
 // Legacy builds stored "dark"/"light" under strava:theme; move that to strava:colorMode.

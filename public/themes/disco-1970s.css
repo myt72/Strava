@@ -2,7 +2,7 @@ body[data-theme="disco-1970s"] {
   --bg: #21180f; --bg-2: repeating-conic-gradient(#342519 0 25%, #251c13 0 50%) 0 0/44px 44px;
   --surface: #261d14; --surface-strong: #302419; --surface-muted: #33271a; --surface-deep: #17120d;
   --text: #fff0cf; --text-muted: #ddc89f; --border: #9a7838;
-  --accent: #e5a93b; --accent-2: #cc5500; --distance: #f2c557; --time: #f08736; --elevation: #a9ba54;
+  --accent: #e5a93b; --accent-2: #ff9a50; --distance: #f2c557; --time: #f08736; --elevation: #a9ba54;
   --danger: #f06443; --success: #a9ba54; --warning: #f2c557; --shadow: 0 8px 22px #0009; --shadow-soft: 0 4px 12px #0007;
   --radius: 8px; --radius-sm: 5px; --glass: none; --t-on-accent: #20170e; --t-track: #51402b;
   --t-fill-distance: #f2c557; --t-fill-time: #f08736; --t-fill-elevation: #a9ba54;
@@ -39,4 +39,18 @@ body[data-theme="disco-1970s"] .annual-strip-label { color: #fff0cf; }
 body[data-theme="disco-1970s"] .annual-strip-sub { color: #ddc89f; }
 body[data-theme="disco-1970s"] .spinner-wheel { border-color: #51402b; border-top-color: #e5a93b; }
 body[data-theme="disco-1970s"] h1, body[data-theme="disco-1970s"] h2, body[data-theme="disco-1970s"] h3 { font-family: "Cooper Black", "Bookman Old Style", Georgia, serif; font-weight: 900; }
+@media (prefers-reduced-motion: no-preference) {
+  body[data-theme="disco-1970s"] .kpi-card, body[data-theme="disco-1970s"] .chart-card { animation: disco1970-tile-flash .45s ease-out 1; }
+  @keyframes disco1970-tile-flash { 0% { box-shadow: 0 0 18px #e5a93b88; } 100% { box-shadow: var(--shadow-soft); } }
+}
 @media (max-width: 720px) { body[data-theme="disco-1970s"] .hero-period-stats { grid-template-columns: 1fr; } }
+body[data-theme="disco-1970s"] .status-bar, body[data-theme="disco-1970s"] .hero-main, body[data-theme="disco-1970s"] .kpi-card,
+body[data-theme="disco-1970s"] .chart-card, body[data-theme="disco-1970s"] .hero-stat, body[data-theme="disco-1970s"] .record-card,
+body[data-theme="disco-1970s"] .highlight-card, body[data-theme="disco-1970s"] .featured-activity-card,
+body[data-theme="disco-1970s"] .comparison-mobile-card, body[data-theme="disco-1970s"] .bike-insight-card,
+body[data-theme="disco-1970s"] #theme-manager, body[data-theme="disco-1970s"] #bike-gallery { border-radius: var(--radius); }
+body[data-theme="disco-1970s"] .segmented-control, body[data-theme="disco-1970s"] .segmented-btn,
+body[data-theme="disco-1970s"] .annual-breakdown-mode-btn, body[data-theme="disco-1970s"] .pin-button,
+body[data-theme="disco-1970s"] .filter-field select, body[data-theme="disco-1970s"] .filter-field input,
+body[data-theme="disco-1970s"] .bike-controls input, body[data-theme="disco-1970s"] .bike-controls select,
+body[data-theme="disco-1970s"] .side-meta, body[data-theme="disco-1970s"] .dropdown-menu { border-radius: var(--radius-sm); }

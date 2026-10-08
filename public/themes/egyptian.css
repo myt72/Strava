@@ -1,8 +1,8 @@
 body[data-theme="egyptian"] {
   --bg: #c58f68; --bg-2: repeating-linear-gradient(0deg, #d6a77e 0 5px, #c99a72 6px 7px, #d6a77e 8px 14px);
   --surface: #edc9af; --surface-strong: #f5dbc3; --surface-muted: #e1b995; --surface-deep: #cda27d;
-  --text: #24201d; --text-muted: #514137; --border: #72543b;
-  --accent: #002fa7; --accent-2: #8b4a24; --distance: #002fa7; --time: #7b3e24; --elevation: #24563c;
+  --text: #24201d; --text-muted: #443429; --border: #72543b;
+  --accent: #002fa7; --accent-2: #673616; --distance: #002fa7; --time: #603018; --elevation: #19432d;
   --danger: #8c2720; --success: #24563c; --warning: #714410; --shadow: 0 6px 15px #33251a55; --shadow-soft: 0 3px 8px #33251a38;
   --radius: 10px; --radius-sm: 6px; --glass: none; --t-on-accent: #fff; --t-track: #c6a17e;
   --t-fill-distance: #002fa7; --t-fill-time: #7b3e24; --t-fill-elevation: #24563c;
@@ -40,3 +40,13 @@ body[data-theme="egyptian"] .annual-strip-sub { color: #514137; }
 body[data-theme="egyptian"] .spinner-wheel { border-color: #c6a17e; border-top-color: #002fa7; }
 body[data-theme="egyptian"] .card-kicker, body[data-theme="egyptian"] .eyebrow { background: #edc9af; border: 1px solid #72543b; border-radius: 999px; padding: 2px 8px; }
 @media (max-width: 720px) { body[data-theme="egyptian"] .hero-period-stats { grid-template-columns: 1fr; } }
+body[data-theme="egyptian"] .status-bar, body[data-theme="egyptian"] .hero-main, body[data-theme="egyptian"] .kpi-card,
+body[data-theme="egyptian"] .chart-card, body[data-theme="egyptian"] .hero-stat, body[data-theme="egyptian"] .record-card,
+body[data-theme="egyptian"] .highlight-card, body[data-theme="egyptian"] .featured-activity-card,
+body[data-theme="egyptian"] .comparison-mobile-card, body[data-theme="egyptian"] .bike-insight-card,
+body[data-theme="egyptian"] #theme-manager, body[data-theme="egyptian"] #bike-gallery { border-radius: var(--radius); }
+body[data-theme="egyptian"] .segmented-control, body[data-theme="egyptian"] .segmented-btn,
+body[data-theme="egyptian"] .annual-breakdown-mode-btn, body[data-theme="egyptian"] .pin-button,
+body[data-theme="egyptian"] .filter-field select, body[data-theme="egyptian"] .filter-field input,
+body[data-theme="egyptian"] .bike-controls input, body[data-theme="egyptian"] .bike-controls select,
+body[data-theme="egyptian"] .side-meta, body[data-theme="egyptian"] .dropdown-menu { border-radius: var(--radius-sm); }

@@ -2,7 +2,7 @@ body[data-theme="psychedelic-1960s"] {
   --bg: #ffd166; --bg-2: radial-gradient(circle at 12% 18%, #ef476f 0 7%, transparent 7.5%), radial-gradient(circle at 87% 66%, #11867d 0 12%, transparent 12.5%), repeating-radial-gradient(ellipse at 50% 50%, #ffd166 0 18px, #ef476f 19px 23px, #392754 24px 31px);
   --surface: #fff8de; --surface-strong: #fffdf2; --surface-muted: #f4e9c8; --surface-deep: #e3d5ae;
   --text: #251528; --text-muted: #4a3548; --border: #392754;
-  --accent: #98224b; --accent-2: #08736d; --distance: #98224b; --time: #6d3678; --elevation: #08736d;
+  --accent: #98224b; --accent-2: #00564f; --distance: #98224b; --time: #6d3678; --elevation: #00564f;
   --danger: #98224b; --success: #08736d; --warning: #805300; --shadow: 5px 7px 0 #392754; --shadow-soft: 3px 4px 0 #392754;
   --radius: 60% 40% 55% 45% / 45% 55% 40% 60%; --radius-sm: 14px; --glass: none; --t-on-accent: #fff; --t-track: #d8c99f;
   --t-fill-distance: #98224b; --t-fill-time: #6d3678; --t-fill-elevation: #08736d;
@@ -40,3 +40,13 @@ body[data-theme="psychedelic-1960s"] .annual-strip-sub { color: #4a3548; }
 body[data-theme="psychedelic-1960s"] .spinner-wheel { border-color: #d8c99f; border-top-color: #98224b; }
 @media (prefers-reduced-motion: no-preference) { body[data-theme="psychedelic-1960s"] .chart-card:hover, body[data-theme="psychedelic-1960s"] .kpi-card:hover { transform: rotate(-.35deg) scale(1.01); transition: transform .2s ease; } }
 @media (max-width: 720px) { body[data-theme="psychedelic-1960s"] .hero-period-stats { grid-template-columns: 1fr; } }
+body[data-theme="psychedelic-1960s"] .status-bar, body[data-theme="psychedelic-1960s"] .hero-main, body[data-theme="psychedelic-1960s"] .kpi-card,
+body[data-theme="psychedelic-1960s"] .chart-card, body[data-theme="psychedelic-1960s"] .hero-stat, body[data-theme="psychedelic-1960s"] .record-card,
+body[data-theme="psychedelic-1960s"] .highlight-card, body[data-theme="psychedelic-1960s"] .featured-activity-card,
+body[data-theme="psychedelic-1960s"] .comparison-mobile-card, body[data-theme="psychedelic-1960s"] .bike-insight-card,
+body[data-theme="psychedelic-1960s"] #theme-manager, body[data-theme="psychedelic-1960s"] #bike-gallery { border-radius: var(--radius); }
+body[data-theme="psychedelic-1960s"] .segmented-control, body[data-theme="psychedelic-1960s"] .segmented-btn,
+body[data-theme="psychedelic-1960s"] .annual-breakdown-mode-btn, body[data-theme="psychedelic-1960s"] .pin-button,
+body[data-theme="psychedelic-1960s"] .filter-field select, body[data-theme="psychedelic-1960s"] .filter-field input,
+body[data-theme="psychedelic-1960s"] .bike-controls input, body[data-theme="psychedelic-1960s"] .bike-controls select,
+body[data-theme="psychedelic-1960s"] .side-meta, body[data-theme="psychedelic-1960s"] .dropdown-menu { border-radius: var(--radius-sm); }

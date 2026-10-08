@@ -2,7 +2,7 @@ body[data-theme="diner-1950s"] {
   --bg: #a3e4d7; --bg-2: repeating-linear-gradient(90deg, #a3e4d7 0 38px, #fdfefe 39px 76px);
   --surface: #fdfefe; --surface-strong: #fff; --surface-muted: #eaf8f5; --surface-deep: #d5e7e5;
   --text: #172b2a; --text-muted: #3e5c59; --border: #8d9a99;
-  --accent: #087c72; --accent-2: #c44d4b; --distance: #087c72; --time: #a83240; --elevation: #395d34;
+  --accent: #006258; --accent-2: #842633; --distance: #006258; --time: #842633; --elevation: #395d34;
   --danger: #a83240; --success: #395d34; --warning: #805210; --shadow: 0 7px 18px #244d4730; --shadow-soft: inset 0 1px #fff, 0 3px 8px #244d4726;
   --radius: 22px; --radius-sm: 14px; --glass: none; --t-on-accent: #fff; --t-track: #c6d9d6;
   --t-fill-distance: #087c72; --t-fill-time: #a83240; --t-fill-elevation: #395d34;
@@ -40,3 +40,13 @@ body[data-theme="diner-1950s"] .annual-strip-sub { color: #3e5c59; }
 body[data-theme="diner-1950s"] .spinner-wheel { border-color: #c6d9d6; border-top-color: #087c72; }
 body[data-theme="diner-1950s"] h1, body[data-theme="diner-1950s"] h2, body[data-theme="diner-1950s"] h3 { font-family: "Brush Script MT", "Trebuchet MS", sans-serif; letter-spacing: .02em; }
 @media (max-width: 720px) { body[data-theme="diner-1950s"] .hero-period-stats { grid-template-columns: 1fr; } }
+body[data-theme="diner-1950s"] .status-bar, body[data-theme="diner-1950s"] .hero-main, body[data-theme="diner-1950s"] .kpi-card,
+body[data-theme="diner-1950s"] .chart-card, body[data-theme="diner-1950s"] .hero-stat, body[data-theme="diner-1950s"] .record-card,
+body[data-theme="diner-1950s"] .highlight-card, body[data-theme="diner-1950s"] .featured-activity-card,
+body[data-theme="diner-1950s"] .comparison-mobile-card, body[data-theme="diner-1950s"] .bike-insight-card,
+body[data-theme="diner-1950s"] #theme-manager, body[data-theme="diner-1950s"] #bike-gallery { border-radius: var(--radius); }
+body[data-theme="diner-1950s"] .segmented-control, body[data-theme="diner-1950s"] .segmented-btn,
+body[data-theme="diner-1950s"] .annual-breakdown-mode-btn, body[data-theme="diner-1950s"] .pin-button,
+body[data-theme="diner-1950s"] .filter-field select, body[data-theme="diner-1950s"] .filter-field input,
+body[data-theme="diner-1950s"] .bike-controls input, body[data-theme="diner-1950s"] .bike-controls select,
+body[data-theme="diner-1950s"] .side-meta, body[data-theme="diner-1950s"] .dropdown-menu { border-radius: var(--radius-sm); }

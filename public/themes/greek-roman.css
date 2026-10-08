@@ -40,3 +40,13 @@ body[data-theme="greek-roman"] .annual-strip-sub { color: #4e424c; }
 body[data-theme="greek-roman"] .spinner-wheel { border-color: #cbd0d1; border-top-color: #4a0e2e; }
 body[data-theme="greek-roman"] h1, body[data-theme="greek-roman"] h2, body[data-theme="greek-roman"] h3 { text-transform: uppercase; letter-spacing: .08em; }
 @media (max-width: 720px) { body[data-theme="greek-roman"] .hero-period-stats { grid-template-columns: 1fr; } }
+body[data-theme="greek-roman"] .status-bar, body[data-theme="greek-roman"] .hero-main, body[data-theme="greek-roman"] .kpi-card,
+body[data-theme="greek-roman"] .chart-card, body[data-theme="greek-roman"] .hero-stat, body[data-theme="greek-roman"] .record-card,
+body[data-theme="greek-roman"] .highlight-card, body[data-theme="greek-roman"] .featured-activity-card,
+body[data-theme="greek-roman"] .comparison-mobile-card, body[data-theme="greek-roman"] .bike-insight-card,
+body[data-theme="greek-roman"] #theme-manager, body[data-theme="greek-roman"] #bike-gallery { border-radius: var(--radius); }
+body[data-theme="greek-roman"] .segmented-control, body[data-theme="greek-roman"] .segmented-btn,
+body[data-theme="greek-roman"] .annual-breakdown-mode-btn, body[data-theme="greek-roman"] .pin-button,
+body[data-theme="greek-roman"] .filter-field select, body[data-theme="greek-roman"] .filter-field input,
+body[data-theme="greek-roman"] .bike-controls input, body[data-theme="greek-roman"] .bike-controls select,
+body[data-theme="greek-roman"] .side-meta, body[data-theme="greek-roman"] .dropdown-menu { border-radius: var(--radius-sm); }

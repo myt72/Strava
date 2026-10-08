@@ -2,7 +2,7 @@ body[data-theme="art-deco-1920s"] {
   --bg: #111; --bg-2: radial-gradient(ellipse at 50% 0, #273b39 0, #111 58%);
   --surface: #191a18; --surface-strong: #20221f; --surface-muted: #222420; --surface-deep: #10110f;
   --text: #f4e7bd; --text-muted: #d3c396; --border: #98782b;
-  --accent: #e3c35c; --accent-2: #1c6961; --distance: #e3c35c; --time: #84c8b6; --elevation: #e6ab62;
+  --accent: #e3c35c; --accent-2: #82c8b6; --distance: #e3c35c; --time: #84c8b6; --elevation: #e6ab62;
   --danger: #f28a7e; --success: #84c8b6; --warning: #e3c35c; --shadow: 0 8px 24px #0009; --shadow-soft: 0 3px 10px #0008;
   --radius: 2px; --radius-sm: 1px; --glass: none; --t-on-accent: #151511; --t-track: #414039;
   --t-fill-distance: #e3c35c; --t-fill-time: #84c8b6; --t-fill-elevation: #e6ab62;
@@ -41,3 +41,13 @@ body[data-theme="art-deco-1920s"] .spinner-wheel { border-color: #414039; border
 body[data-theme="art-deco-1920s"] h1, body[data-theme="art-deco-1920s"] h2, body[data-theme="art-deco-1920s"] h3 { text-transform: uppercase; letter-spacing: .14em; }
 body[data-theme="art-deco-1920s"] .chart-card, body[data-theme="art-deco-1920s"] .kpi-card { clip-path: polygon(0 0, 96% 0, 100% 12%, 100% 100%, 4% 100%, 0 88%); }
 @media (max-width: 720px) { body[data-theme="art-deco-1920s"] .hero-period-stats { grid-template-columns: 1fr; } }
+body[data-theme="art-deco-1920s"] .status-bar, body[data-theme="art-deco-1920s"] .hero-main, body[data-theme="art-deco-1920s"] .kpi-card,
+body[data-theme="art-deco-1920s"] .chart-card, body[data-theme="art-deco-1920s"] .hero-stat, body[data-theme="art-deco-1920s"] .record-card,
+body[data-theme="art-deco-1920s"] .highlight-card, body[data-theme="art-deco-1920s"] .featured-activity-card,
+body[data-theme="art-deco-1920s"] .comparison-mobile-card, body[data-theme="art-deco-1920s"] .bike-insight-card,
+body[data-theme="art-deco-1920s"] #theme-manager, body[data-theme="art-deco-1920s"] #bike-gallery { border-radius: var(--radius); }
+body[data-theme="art-deco-1920s"] .segmented-control, body[data-theme="art-deco-1920s"] .segmented-btn,
+body[data-theme="art-deco-1920s"] .annual-breakdown-mode-btn, body[data-theme="art-deco-1920s"] .pin-button,
+body[data-theme="art-deco-1920s"] .filter-field select, body[data-theme="art-deco-1920s"] .filter-field input,
+body[data-theme="art-deco-1920s"] .bike-controls input, body[data-theme="art-deco-1920s"] .bike-controls select,
+body[data-theme="art-deco-1920s"] .side-meta, body[data-theme="art-deco-1920s"] .dropdown-menu { border-radius: var(--radius-sm); }
