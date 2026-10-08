@@ -46,3 +46,11 @@ Default (first in the picker)
 **Data Terminals / Technical**: `sportsbook`, `trading-terminal`, `glass-cockpit`, `bauhaus`
 
 **Modern / Glass**: `liquid-glass`
+
+**Time Periods**: `western-wanted`, `art-deco-1920s`, `diner-1950s`, `psychedelic-1960s`, `disco-1970s`, `greek-roman`, `egyptian`
+
+**Cinema / Album / Print**: `prism`, `matrix-thriller`, `encyclopedia`
+
+**Exotic / Novelty**: `tiki-lounge`, `steampunk`
+
+**Modern / Minimal**: `y2k-cyber`, `dark-academia`, `japandi`, `cyber-minimal`, `lcars-modern`, `cyberpunk-breach`
