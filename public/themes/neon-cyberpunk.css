@@ -30,7 +30,33 @@ body[data-theme="cyberpunk"] {
   color: var(--text);
 }
 
-body[data-theme="cyberpunk"] .tone-distance { background: linear-gradient(90deg, var(--distance), var(--accent)); }
-body[data-theme="cyberpunk"] .tone-time { background: linear-gradient(90deg, var(--time), var(--accent-2)); }
 
 body[data-theme="cyberpunk"] h1 { text-transform: uppercase; letter-spacing: 0.08em; text-shadow: 0 0 10px var(--accent); }
+
+/* Chart legibility: no gradient behind text, explicit text colors, solid fills distinct from the track */
+body[data-theme="cyberpunk"] .hero-main::before { background: radial-gradient(circle, rgba(0,255,225,0.14), transparent 60%); }
+body[data-theme="cyberpunk"] .spinner-wheel { border-color: var(--border); border-top-color: var(--accent); }
+body[data-theme="cyberpunk"] .hero-stat { background: var(--surface-strong); }
+body[data-theme="cyberpunk"] .bar-track,
+body[data-theme="cyberpunk"] .stack-list-track { background: #02040a; border: 1px solid var(--border); }
+body[data-theme="cyberpunk"] .bar-fill,
+body[data-theme="cyberpunk"] .stack-list-fill { background: var(--accent); }
+body[data-theme="cyberpunk"] .bar-label { color: var(--text); }
+body[data-theme="cyberpunk"] .bar-value { color: var(--text-muted); }
+body[data-theme="cyberpunk"] .timeline-bars-wrap,
+body[data-theme="cyberpunk"] .annual-strip-chart,
+body[data-theme="cyberpunk"] .timeline-bars-wrap.tone-distance,
+body[data-theme="cyberpunk"] .timeline-bars-wrap.tone-time,
+body[data-theme="cyberpunk"] .timeline-bars-wrap.tone-elevation { background: none; }
+body[data-theme="cyberpunk"] .timeline-bar-track,
+body[data-theme="cyberpunk"] .annual-strip-track { background: #02040a; border: 1px solid var(--border); box-sizing: border-box; }
+body[data-theme="cyberpunk"] .timeline-bar-fill,
+body[data-theme="cyberpunk"] .annual-strip-fill { background: var(--accent); }
+body[data-theme="cyberpunk"] .timeline-bars-wrap.tone-distance .timeline-bar-fill { background: #00ffe1; }
+body[data-theme="cyberpunk"] .timeline-bars-wrap.tone-time .timeline-bar-fill { background: #fcee0a; }
+body[data-theme="cyberpunk"] .timeline-bars-wrap.tone-elevation .timeline-bar-fill { background: #39ff14; }
+body[data-theme="cyberpunk"] .timeline-bar-value,
+body[data-theme="cyberpunk"] .annual-strip-top,
+body[data-theme="cyberpunk"] .timeline-bar-label,
+body[data-theme="cyberpunk"] .annual-strip-label { color: var(--text); }
+body[data-theme="cyberpunk"] .annual-strip-sub { color: var(--text-muted); }
