@@ -1,0 +1,38 @@
+/* lcars theme: every selector is scoped to body[data-theme="lcars"] */
+body[data-theme="lcars"] {
+  --bg: #000000;
+  --bg-2: #000000;
+  --surface: rgba(17,17,34,0.95);
+  --surface-strong: #15152b;
+  --surface-muted: #0d0d1c;
+  --surface-deep: #0a0a16;
+  --text: #ffcc99;
+  --text-muted: #cc99cc;
+  --border: #ff9966;
+  --accent: #ff9966;
+  --accent-2: #cc99cc;
+  --distance: #99ccff;
+  --time: #ffcc66;
+  --elevation: #99ff99;
+  --danger: #ff4d6d;
+  --success: #3ddc97;
+  --warning: #ffb347;
+  --shadow: none;
+  --shadow-soft: none;
+  --radius: 28px;
+  --radius-sm: 18px;
+  --glass: none;
+}
+
+body[data-theme="lcars"] {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  background: var(--bg-2);
+  color: var(--text);
+}
+
+body[data-theme="lcars"] .tone-distance { background: linear-gradient(90deg, var(--distance), var(--accent)); }
+body[data-theme="lcars"] .tone-time { background: linear-gradient(90deg, var(--time), var(--accent-2)); }
+
+body[data-theme="lcars"] h1, body[data-theme="lcars"] .eyebrow { text-transform: uppercase; letter-spacing: 0.12em; }
+body[data-theme="lcars"] .side-rail { border-radius: 0 40px 40px 0; border-right: 14px solid var(--accent); }
+body[data-theme="lcars"] .topbar { border-bottom: 10px solid var(--accent-2); border-radius: 0 0 0 40px; }
