@@ -18,7 +18,7 @@ A registry entry may add `script: "themes/<id>.js"`. After the stylesheet is app
 
 Contract: the script registers `window.ThemeDecor = window.ThemeDecor || {}; window.ThemeDecor["<id>"] = { start(), stop() }`. Created elements must carry `data-theme-decor`, the decor must respect `prefers-reduced-motion` (static frame, no animation), and `stop()` must fully clean up (cancel animation frames, remove listeners and elements).
 
-`matrix-thriller` uses this for its animated Matrix digital-rain canvas (`themes/matrix-thriller.js`), a fixed, dim, click-through canvas behind the page.
+`matrix-thriller` uses this for its animated Matrix digital-rain canvas (`themes/matrix-thriller.js`), a fixed, click-through canvas behind the page (panels are semi-transparent so the streams show through). It respects `prefers-reduced-motion` by default (static frame), but a small fixed "Rain: animated / static" toggle (bottom-right) lets users override it. The choice is stored in `localStorage["strava:matrixRain"]` (`"on"` always animates, `"off"` is static, absent follows the system) and can also be set with `?rain=on` / `?rain=off` in the URL.
 
 ## Adding a theme
 
